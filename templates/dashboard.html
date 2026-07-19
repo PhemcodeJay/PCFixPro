@@ -1,0 +1,288 @@
+C<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCFixPro · Command Center Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <i class="fas fa-satellite-dish"></i>
+        <span>Command Center</span>
+      </div>
+<nav class="sidebar-nav">
+    <a href="#" class="nav-item active" onclick="return navigateToPage('dashboard')"><i class="fas fa-th-large"></i> Dashboard</a>
+    <a href="#" class="nav-item" onclick="return navigateToPage('sessions')"><i class="fas fa-desktop"></i> Sessions</a>
+    <a href="#" class="nav-item" onclick="return navigateToPage('agents')"><i class="fas fa-laptop-code"></i> Agents</a>
+    <a href="#" class="nav-item" onclick="return navigateToPage('terminal')"><i class="fas fa-terminal"></i> Terminal</a>
+    <a href="#" class="nav-item" onclick="return navigateToPage('security')"><i class="fas fa-shield-alt"></i> Security</a>
+    <a href="#" class="nav-item" onclick="return navigateToPage('settings')"><i class="fas fa-cog"></i> Settings</a>
+  </nav>
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <span class="dot live"></span>
+          <span>System Online</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <button class="menu-toggle"><i class="fas fa-bars"></i></button>
+          <h1>Operations Dashboard</h1>
+        </div>
+        <div class="top-bar-right">
+          <div class="metric-pill">
+            <i class="fas fa-clock"></i>
+            <span id="currentTime">--:--:--</span>
+          </div>
+          <div class="metric-pill">
+            <i class="fas fa-server"></i>
+            <span id="activeCount">0</span> Active
+          </div>
+          <button class="btn-primary" onclick="openConnectModal()">
+            <i class="fas fa-plus"></i> New Session
+          </button>
+        </div>
+      </header>
+
+<!-- Dashboard Grid -->
+      <div class="dashboard-grid" id="dashboardPage">
+        <!-- Active Sessions -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-desktop"></i>
+            <h3>Active Sessions</h3>
+          </div>
+          <div class="card-body">
+            <div class="big-metric" id="sessionMetric">0</div>
+            <div class="sparkline" id="sessionChart"></div>
+          </div>
+        </div>
+
+        <!-- Network Health -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-network-wired"></i>
+            <h3>Network Health</h3>
+          </div>
+          <div class="card-body">
+            <div class="big-metric">99.9<span class="unit">%</span></div>
+            <div class="status-row">
+              <span class="status-badge success">Operational</span>
+              <span>Latency: 12ms</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Status -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Security Status</h3>
+          </div>
+          <div class="card-body">
+            <div class="big-metric">0<span class="unit">threats</span></div>
+            <div class="status-row">
+              <span class="status-badge success">All Clear</span>
+              <span>AES-256</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Active Alerts</h3>
+          </div>
+          <div class="card-body">
+            <div class="big-metric" id="alertCount">0</div>
+            <div class="alert-box" id="alertBox" style="display:none;">
+              <i class="fas fa-flash"></i>
+              <span id="alertText">No alerts</span>
+            </div>
+          </div>
+        </div>
+
+      <!-- Connected Agents -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fas fa-laptop-code"></i>
+          <h3>Connected Agents</h3>
+        </div>
+        <div class="card-body">
+          <div class="big-metric" id="agentCount">0</div>
+          <div class="status-row">
+            <span id="agentStatusText">No agents connected</span>
+          </div>
+          <div id="agentsList" style="margin-top: 1rem; max-height: 300px; overflow-y: auto;">
+            <!-- Agents will be listed here -->
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Sessions Table -->
+      <div class="card full-width">
+        <div class="card-header">
+          <i class="fas fa-list"></i>
+          <h3>Active RDP Sessions</h3>
+        </div>
+        <div class="card-body">
+          <table class="sessions-table">
+            <thead>
+              <tr>
+                <th>Session ID</th>
+                <th>Client</th>
+                <th>Host</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sessionsTable">
+              <tr>
+                <td colspan="6" style="text-align:center; padding: 2rem; color: #64748b;">
+                  No active sessions. Click "New Session" to connect.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Terminal Panel -->
+      <div class="card full-width">
+        <div class="card-header">
+          <i class="fas fa-terminal"></i>
+          <h3>Remote Console</h3>
+          <div class="terminal-controls">
+            <button class="btn-small" onclick="clearTerminal()">Clear</button>
+            <button class="btn-small" onclick="toggleTerminal()">Minimize</button>
+          </div>
+        </div>
+        <div class="card-body terminal-body">
+          <div class="terminal" id="terminal">
+            <div class="terminal-output" id="terminalOutput">
+              <div class="terminal-line info">Welcome to PCFixPro Command Center v1.0</div>
+              <div class="terminal-line info">Type 'help' for available commands.</div>
+            </div>
+            <div class="terminal-input-line">
+              <span class="prompt">$</span>
+              <input type="text" id="terminalInput" class="terminal-input" placeholder="Enter command..." autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- File Manager -->
+      <div class="card full-width" id="fileManagerCard" style="display:none;">
+        <div class="card-header">
+          <i class="fas fa-folder-open"></i>
+          <h3>File Manager - <span id="fileManagerAgent">Select an agent</span></h3>
+          <div class="terminal-controls">
+            <button class="btn-small" onclick="refreshFileList()"><i class="fas fa-sync"></i> Refresh</button>
+            <button class="btn-small" onclick="closeFileManager()"><i class="fas fa-times"></i> Close</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="file-toolbar">
+            <button class="btn-small" onclick="uploadFile()"><i class="fas fa-upload"></i> Upload</button>
+            <button class="btn-small" onclick="downloadSelected()"><i class="fas fa-download"></i> Download</button>
+            <button class="btn-small" onclick="deleteSelected()"><i class="fas fa-trash"></i> Delete</button>
+            <button class="btn-small" onclick="takeScreenshot()"><i class="fas fa-camera"></i> Screenshot</button>
+            <div style="width: 1px; background: #d0d8e2; margin: 0 0.5rem;"></div>
+            <button class="btn-small" onclick="listProcesses()" title="List Processes"><i class="fas fa-tasks"></i> Processes</button>
+            <button class="btn-small" onclick="killProcess()" title="Kill Process"><i class="fas fa-stop-circle"></i> Kill</button>
+            <button class="btn-small" onclick="readRegistry()" title="Read Registry"><i class="fas fa-registry"></i> Registry</button>
+            <button class="btn-small" onclick="wakeOnLAN()" title="Wake on LAN"><i class="fas fa-power-off"></i> Wake</button>
+            <input type="hidden" id="selectedFile">
+            <input type="hidden" id="currentAgentId">
+          </div>
+          <div class="file-browser" id="fileBrowser">
+            <table class="file-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Size</th>
+                  <th>Modified</th>
+                  <th>Type</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fileList">
+                <tr><td colspan="5" style="text-align:center; padding: 2rem;">Select an agent to browse files</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="screenshotPreview" style="display:none; margin-top: 1rem; text-align: center;">
+            <img id="screenshotImg" src="" alt="Screenshot" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <div style="margin-top: 0.5rem;">
+              <button class="btn-small" onclick="downloadScreenshot()"><i class="fas fa-download"></i> Download Screenshot</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Connect Modal -->
+  <div class="modal" id="connectModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2><i class="fas fa-plug"></i> Establish RDP Connection</h2>
+        <button class="modal-close" onclick="closeConnectModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="connectForm">
+          <div class="form-group">
+            <label>Client Name</label>
+            <input type="text" id="clientName" placeholder="e.g. John Smith" required>
+          </div>
+          <div class="form-group">
+            <label>Host / IP Address</label>
+            <input type="text" id="host" placeholder="192.168.1.100 or remote.pc" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Port</label>
+              <input type="number" id="port" value="3389" required>
+            </div>
+            <div class="form-group">
+              <label>Protocol</label>
+              <select id="protocol">
+                <option value="rdp">RDP</option>
+                <option value="ssh">SSH</option>
+                <option value="vnc">VNC</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="Administrator" required>
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn-primary full-width">
+            <i class="fas fa-link"></i> Connect
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

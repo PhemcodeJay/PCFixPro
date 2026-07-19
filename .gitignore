@@ -1,0 +1,55 @@
+# Gitignore for PCFixPro RemoteFix Project
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Flask
+instance/
+.webassets-cache
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Client Agent Packages (Large binaries)
+client_agent/dist/
+*.zip
+
+# Downloads folder (if created)
+downloads/
+
+# Temporary files
+tmp/
+temp/
