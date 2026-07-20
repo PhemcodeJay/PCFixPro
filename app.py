@@ -365,9 +365,28 @@ def handle_register_agent(data):
 @socketio.on('heartbeat')
 def handle_heartbeat(data):
     agent_id = data.get('agent_id')
+    customer_id = data.get('customer_id')
+    assigned_ip = data.get('assigned_ip')
+    session_status = data.get('session_status')
+    
     if agent_id in connected_agents:
         connected_agents[agent_id]['last_seen'] = datetime.now().isoformat()
         connected_agents[agent_id]['status'] = 'online'
+        
+        # Store heartbeat data for dashboard display
+        connected_agents[agent_id]['customer_id'] = customer_id
+        connected_agents[agent_id]['assigned_ip'] = assigned_ip
+        connected_agents[agent_id]['session_status'] = session_status
+        connected_agents[agent_id]['active_connections'] = data.get('active_connections', 0)
+    
+    # Emit real-time heartbeat to dashboard
+    socketio.emit('heartbeat_update', {
+        'agent_id': agent_id,
+        'customer_id': customer_id,
+        'assigned_ip': assigned_ip,
+        'session_status': session_status,
+        'timestamp': datetime.now().isoformat()
+    }, broadcast=True)
 
 @socketio.on('command_result')
 def handle_command_result(data):
@@ -440,6 +459,45 @@ def handle_kill_result(data):
 @socketio.on('wol_result')
 def handle_wol_result(data):
     emit('wol_result', data, broadcast=True)
+
+@socketio.on('execute_command')
+def handle_execute_command(data):
+    """Execute command on agent via Socket.IO"""
+    agent_id = data.get('agent_id')
+    command = data.get('command')
+    
+    if agent_id and agent_id in connected_agents:
+        socketio.emit('execute_command', {
+            'agent_id': agent_id,
+            'command': command,
+            'command_id': data.get('command_id')
+        }, to=agent_id)
+    else:
+        emit('command_output', {'output': 'Agent not found', 'error': True})
+
+@socketio.on('list_processes')
+def handle_list_processes(data):
+    agent_id = data.get('agent_id')
+    if agent_id in connected_agents:
+        socketio.emit('list_processes', data, to=agent_id)
+
+@socketio.on('kill_process')
+def handle_kill_process(data):
+    agent_id = data.get('agent_id')
+    if agent_id in connected_agents:
+        socketio.emit('kill_process', data, to=agent_id)
+
+@socketio.on('read_registry')
+def handle_read_registry(data):
+    agent_id = data.get('agent_id')
+    if agent_id in connected_agents:
+        socketio.emit('read_registry', data, to=agent_id)
+
+@socketio.on('wake_on_lan')
+def handle_wake_on_lan(data):
+    agent_id = data.get('agent_id')
+    if agent_id in connected_agents:
+        socketio.emit('wake_on_lan', data, to=agent_id)
 
 # Payment and download endpoints
 @app.route('/api/verify-payment', methods=['POST'])

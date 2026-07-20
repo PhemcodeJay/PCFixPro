@@ -411,6 +411,20 @@ socket.on('agent_registered', (data) => {
   addTerminalLine(`Agent registered: ${data.message}`, 'success');
 });
 
+socket.on('heartbeat_update', (data) => {
+  // Real-time heartbeat update from gateway
+  const agentId = data.agent_id;
+  const customerId = data.customer_id || 'N/A';
+  const assignedIp = data.assigned_ip || 'N/A';
+  const sessionStatus = data.session_status || 'unknown';
+  
+  // Update agent status in UI
+  addTerminalLine(`Heartbeat: ${customerId} @ ${assignedIp} - ${sessionStatus}`, 'info');
+  
+  // Update agent list if showing
+  loadAgents();
+});
+
 // File Manager Functions
 function setupFileManagerEvents() {
   // File list received
@@ -763,15 +777,15 @@ document.getElementById('connectModal')?.addEventListener('click', (e) => {
 // Page navigation function
 function navigateToPage(page) {
   // Hide all pages
-  document.getElementById('dashboardPage')?.style && (document.getElementById('dashboardPage').style.display = 'none');
-  document.getElementById('sessionsPage')?.style && (document.getElementById('sessionsPage').style.display = 'none');
-  document.getElementById('agentsPage')?.style && (document.getElementById('agentsPage').style.display = 'none');
-  document.getElementById('securityPage')?.style && (document.getElementById('securityPage').style.display = 'none');
-  document.getElementById('settingsPage')?.style && (document.getElementById('settingsPage').style.display = 'none');
-  document.getElementById('terminalPage')?.style && (document.getElementById('terminalPage').style.display = 'none');
+  document.querySelectorAll('.page-section').forEach(section => {
+    section.style.display = 'none';
+  });
   
   // Show selected page
-  document.getElementById(page + 'Page')?.style && (document.getElementById(page + 'Page').style.display = 'block');
+  const targetPage = document.getElementById(page + 'Page');
+  if (targetPage) {
+    targetPage.style.display = 'block';
+  }
   
   // Update title
   const titles = {
@@ -782,11 +796,17 @@ function navigateToPage(page) {
     settings: 'Settings',
     terminal: 'Remote Console'
   };
-  document.getElementById('pageTitle').textContent = titles[page] || 'PCFixPro';
+  const pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) {
+    pageTitle.textContent = titles[page] || 'PCFixPro';
+  }
   
   // Update nav active state
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  event?.target?.classList?.add('active');
+  const clickedItem = event?.target?.closest('.nav-item');
+  if (clickedItem) {
+    clickedItem.classList.add('active');
+  }
   
   return false;
 }

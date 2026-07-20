@@ -1,4 +1,4 @@
-C<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -6,6 +6,10 @@ C<!DOCTYPE html>
   <title>PCFixPro · Command Center Dashboard</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <style>
+    .page-section { display: none; }
+    #dashboardPage { display: block; }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -15,14 +19,14 @@ C<!DOCTYPE html>
         <i class="fas fa-satellite-dish"></i>
         <span>Command Center</span>
       </div>
-<nav class="sidebar-nav">
-    <a href="#" class="nav-item active" onclick="return navigateToPage('dashboard')"><i class="fas fa-th-large"></i> Dashboard</a>
-    <a href="#" class="nav-item" onclick="return navigateToPage('sessions')"><i class="fas fa-desktop"></i> Sessions</a>
-    <a href="#" class="nav-item" onclick="return navigateToPage('agents')"><i class="fas fa-laptop-code"></i> Agents</a>
-    <a href="#" class="nav-item" onclick="return navigateToPage('terminal')"><i class="fas fa-terminal"></i> Terminal</a>
-    <a href="#" class="nav-item" onclick="return navigateToPage('security')"><i class="fas fa-shield-alt"></i> Security</a>
-    <a href="#" class="nav-item" onclick="return navigateToPage('settings')"><i class="fas fa-cog"></i> Settings</a>
-  </nav>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" onclick="return navigateToPage('dashboard')"><i class="fas fa-th-large"></i> Dashboard</a>
+        <a href="#" class="nav-item" onclick="return navigateToPage('sessions')"><i class="fas fa-desktop"></i> Sessions</a>
+        <a href="#" class="nav-item" onclick="return navigateToPage('agents')"><i class="fas fa-laptop-code"></i> Agents</a>
+        <a href="#" class="nav-item" onclick="return navigateToPage('terminal')"><i class="fas fa-terminal"></i> Terminal</a>
+        <a href="#" class="nav-item" onclick="return navigateToPage('security')"><i class="fas fa-shield-alt"></i> Security</a>
+        <a href="#" class="nav-item" onclick="return navigateToPage('settings')"><i class="fas fa-cog"></i> Settings</a>
+      </nav>
       <div class="sidebar-footer">
         <div class="status-indicator">
           <span class="dot live"></span>
@@ -37,7 +41,7 @@ C<!DOCTYPE html>
       <header class="top-bar">
         <div class="top-bar-left">
           <button class="menu-toggle"><i class="fas fa-bars"></i></button>
-          <h1>Operations Dashboard</h1>
+          <h1 id="pageTitle">Operations Dashboard</h1>
         </div>
         <div class="top-bar-right">
           <div class="metric-pill">
@@ -54,132 +58,208 @@ C<!DOCTYPE html>
         </div>
       </header>
 
-<!-- Dashboard Grid -->
-      <div class="dashboard-grid" id="dashboardPage">
-        <!-- Active Sessions -->
-        <div class="card">
-          <div class="card-header">
-            <i class="fas fa-desktop"></i>
-            <h3>Active Sessions</h3>
+      <!-- Dashboard Page -->
+      <div id="dashboardPage" class="page-section">
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+          <!-- Active Sessions -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-desktop"></i>
+              <h3>Active Sessions</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="sessionMetric">0</div>
+              <div class="sparkline" id="sessionChart"></div>
+            </div>
           </div>
-          <div class="card-body">
-            <div class="big-metric" id="sessionMetric">0</div>
-            <div class="sparkline" id="sessionChart"></div>
-          </div>
-        </div>
 
-        <!-- Network Health -->
-        <div class="card">
-          <div class="card-header">
-            <i class="fas fa-network-wired"></i>
-            <h3>Network Health</h3>
+          <!-- Network Health -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-network-wired"></i>
+              <h3>Network Health</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric">99.9<span class="unit">%</span></div>
+              <div class="status-row">
+                <span class="status-badge success">Operational</span>
+                <span>Latency: 12ms</span>
+              </div>
+            </div>
           </div>
-          <div class="card-body">
-            <div class="big-metric">99.9<span class="unit">%</span></div>
-            <div class="status-row">
-              <span class="status-badge success">Operational</span>
-              <span>Latency: 12ms</span>
+
+          <!-- Security Status -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-shield-alt"></i>
+              <h3>Security Status</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric">0<span class="unit">threats</span></div>
+              <div class="status-row">
+                <span class="status-badge success">All Clear</span>
+                <span>AES-256</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alerts -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-exclamation-triangle"></i>
+              <h3>Active Alerts</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="alertCount">0</div>
+              <div class="alert-box" id="alertBox" style="display:none;">
+                <i class="fas fa-flash"></i>
+                <span id="alertText">No alerts</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Security Status -->
+        <!-- Connected Agents -->
+        <div class="card full-width">
+          <div class="card-header">
+            <i class="fas fa-laptop-code"></i>
+            <h3>Connected Agents</h3>
+          </div>
+          <div class="card-body">
+            <div class="big-metric" id="agentCount">0</div>
+            <div class="status-row">
+              <span id="agentStatusText">No agents connected</span>
+            </div>
+            <div id="agentsList" style="margin-top: 1rem; max-height: 300px; overflow-y: auto;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sessions Page -->
+      <div id="sessionsPage" class="page-section">
+        <div class="card full-width">
+          <div class="card-header">
+            <i class="fas fa-list"></i>
+            <h3>Active RDP Sessions</h3>
+          </div>
+          <div class="card-body">
+            <table class="sessions-table">
+              <thead>
+                <tr>
+                  <th>Session ID</th>
+                  <th>Client</th>
+                  <th>Host</th>
+                  <th>Status</th>
+                  <th>Duration</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sessionsTable">
+                <tr>
+                  <td colspan="6" style="text-align:center; padding: 2rem; color: #64748b;">
+                    No active sessions. Click "New Session" to connect.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agents Page -->
+      <div id="agentsPage" class="page-section">
+        <div class="card full-width">
+          <div class="card-header">
+            <i class="fas fa-laptop-code"></i>
+            <h3>Agent Management</h3>
+          </div>
+          <div class="card-body">
+            <table class="sessions-table">
+              <thead>
+                <tr>
+                  <th>Agent ID</th>
+                  <th>Hostname</th>
+                  <th>IP Address</th>
+                  <th>OS</th>
+                  <th>Status</th>
+                  <th>Last Seen</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="agentsTable">
+                <tr>
+                  <td colspan="7" style="text-align:center; padding: 2rem; color: #64748b;">
+                    No agents connected. Agents will appear here when they install the client.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terminal Page -->
+      <div id="terminalPage" class="page-section">
+        <div class="card full-width">
+          <div class="card-header">
+            <i class="fas fa-terminal"></i>
+            <h3>Remote Console - <span id="terminalSession">No session</span></h3>
+          </div>
+          <div class="card-body terminal-body">
+            <div class="terminal" id="terminal">
+              <div class="terminal-output" id="terminalOutput">
+                <div class="terminal-line info">Welcome to PCFixPro Command Center v1.0</div>
+                <div class="terminal-line info">Type 'help' for available commands.</div>
+                <div class="terminal-line info">Select an agent to execute real commands.</div>
+              </div>
+              <div class="terminal-input-line">
+                <span class="prompt">$</span>
+                <input type="text" id="terminalInput" class="terminal-input" placeholder="Enter command..." autocomplete="off">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security Page -->
+      <div id="securityPage" class="page-section">
         <div class="card">
           <div class="card-header">
             <i class="fas fa-shield-alt"></i>
-            <h3>Security Status</h3>
+            <h3>Security Center</h3>
           </div>
           <div class="card-body">
-            <div class="big-metric">0<span class="unit">threats</span></div>
-            <div class="status-row">
-              <span class="status-badge success">All Clear</span>
-              <span>AES-256</span>
+            <div class="big-metric">AES-256</div>
+            <div class="status-row"><span class="status-badge success">Encryption Active</span></div>
+            <div style="margin-top: 1rem;">
+              <p>Security Status: All Clear</p>
+              <p>Connected Agents: <span id="securityAgentCount">0</span></p>
+              <p>Active Sessions: <span id="securitySessionCount">0</span></p>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Alerts -->
-        <div class="card">
+      <!-- Settings Page -->
+      <div id="settingsPage" class="page-section">
+        <div class="card full-width">
           <div class="card-header">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h3>Active Alerts</h3>
+            <i class="fas fa-cog"></i>
+            <h3>Settings</h3>
           </div>
           <div class="card-body">
-            <div class="big-metric" id="alertCount">0</div>
-            <div class="alert-box" id="alertBox" style="display:none;">
-              <i class="fas fa-flash"></i>
-              <span id="alertText">No alerts</span>
-            </div>
-          </div>
-        </div>
-
-      <!-- Connected Agents -->
-      <div class="card">
-        <div class="card-header">
-          <i class="fas fa-laptop-code"></i>
-          <h3>Connected Agents</h3>
-        </div>
-        <div class="card-body">
-          <div class="big-metric" id="agentCount">0</div>
-          <div class="status-row">
-            <span id="agentStatusText">No agents connected</span>
-          </div>
-          <div id="agentsList" style="margin-top: 1rem; max-height: 300px; overflow-y: auto;">
-            <!-- Agents will be listed here -->
-          </div>
-        </div>
-      </div>
-      </div>
-
-      <!-- Sessions Table -->
-      <div class="card full-width">
-        <div class="card-header">
-          <i class="fas fa-list"></i>
-          <h3>Active RDP Sessions</h3>
-        </div>
-        <div class="card-body">
-          <table class="sessions-table">
-            <thead>
-              <tr>
-                <th>Session ID</th>
-                <th>Client</th>
-                <th>Host</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="sessionsTable">
-              <tr>
-                <td colspan="6" style="text-align:center; padding: 2rem; color: #64748b;">
-                  No active sessions. Click "New Session" to connect.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Terminal Panel -->
-      <div class="card full-width">
-        <div class="card-header">
-          <i class="fas fa-terminal"></i>
-          <h3>Remote Console</h3>
-          <div class="terminal-controls">
-            <button class="btn-small" onclick="clearTerminal()">Clear</button>
-            <button class="btn-small" onclick="toggleTerminal()">Minimize</button>
-          </div>
-        </div>
-        <div class="card-body terminal-body">
-          <div class="terminal" id="terminal">
-            <div class="terminal-output" id="terminalOutput">
-              <div class="terminal-line info">Welcome to PCFixPro Command Center v1.0</div>
-              <div class="terminal-line info">Type 'help' for available commands.</div>
-            </div>
-            <div class="terminal-input-line">
-              <span class="prompt">$</span>
-              <input type="text" id="terminalInput" class="terminal-input" placeholder="Enter command..." autocomplete="off">
-            </div>
+            <form id="settingsForm">
+              <div class="form-group">
+                <label>Server URL</label>
+                <input type="text" id="serverUrl" value="http://localhost:5000" placeholder="http://your-server-ip:5000">
+              </div>
+              <div class="form-group">
+                <label>Auto-refresh Interval (seconds)</label>
+                <input type="number" id="refreshInterval" value="5">
+              </div>
+              <button type="submit" class="btn-primary">Save Settings</button>
+            </form>
           </div>
         </div>
       </div>
@@ -225,7 +305,7 @@ C<!DOCTYPE html>
             </table>
           </div>
           <div id="screenshotPreview" style="display:none; margin-top: 1rem; text-align: center;">
-            <img id="screenshotImg" src="" alt="Screenshot" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <img id="screenshotImg" src="" alt="Screenshot" style="max-width: 100%; border-radius: 8px;">
             <div style="margin-top: 0.5rem;">
               <button class="btn-small" onclick="downloadScreenshot()"><i class="fas fa-download"></i> Download Screenshot</button>
             </div>

