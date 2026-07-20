@@ -13,12 +13,10 @@ import threading
 import time
 from datetime import datetime
 import base64
-import winreg
-import psutil
 import io
 
 # Configuration
-SERVER_URL = "http://192.168.100.253:5000"
+SERVER_URL = "http://102.209.236.22:5000"
 HOSTNAME = socket.gethostname()
 
 def get_local_ip():
@@ -105,7 +103,7 @@ class AdminAgent:
                 
                 output = {
                     'command_id': command_id,
-                    'output': result.stdout + result.stderr,
+                    'output': (result.stdout or '') + (result.stderr or ''),
                     'return_code': result.returncode,
                     'timestamp': datetime.now().isoformat()
                 }
@@ -118,7 +116,7 @@ class AdminAgent:
                     'return_code': -1,
                     'timestamp': datetime.now().isoformat()
                 })
-
+        
         @self.sio.event
         def list_files(data):
             """List files with admin access"""
@@ -152,7 +150,7 @@ class AdminAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def upload_file(data):
             """Upload file to agent"""
@@ -180,7 +178,7 @@ class AdminAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def download_file(data):
             """Download file from agent"""
@@ -206,7 +204,7 @@ class AdminAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def read_registry(data):
             """Read Windows Registry"""
@@ -214,6 +212,11 @@ class AdminAgent:
             key_path = data.get('key_path')
             
             try:
+                # Import winreg only on Windows
+                if platform.system() != 'Windows':
+                    raise Exception('Registry access only available on Windows')
+                    
+                import winreg
                 if hive == 'HKLM':
                     key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_READ)
                 elif hive == 'HKCU':
@@ -246,22 +249,48 @@ class AdminAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def list_processes(data):
             """List running processes"""
             try:
                 processes = []
-                for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-                    try:
-                        processes.append({
-                            'pid': proc.info['pid'],
-                            'name': proc.info['name'],
-                            'cpu': proc.info['cpu_percent'],
-                            'memory': proc.info['memory_percent']
-                        })
-                    except:
-                        pass
+                # Use psutil if available, otherwise fallback
+                try:
+                    import psutil
+                    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+                        try:
+                            processes.append({
+                                'pid': proc.info['pid'],
+                                'name': proc.info['name'],
+                                'cpu': proc.info['cpu_percent'] or 0,
+                                'memory': proc.info['memory_percent'] or 0
+                            })
+                        except:
+                            pass
+                except ImportError:
+                    # Fallback without psutil
+                    if platform.system() == 'Windows':
+                        import wmi
+                        c = wmi.WMI()
+                        for proc in c.Win32_Process():
+                            processes.append({
+                                'pid': proc.ProcessId,
+                                'name': proc.Name,
+                                'cpu': 0,
+                                'memory': getattr(proc, 'WorkingSetSize', 0) // 1024 // 1024
+                            })
+                    else:
+                        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+                        for line in result.stdout.split('\n')[1:]:
+                            parts = line.split()
+                            if len(parts) > 10:
+                                processes.append({
+                                    'pid': int(parts[1]),
+                                    'name': parts[10],
+                                    'cpu': float(parts[2]),
+                                    'memory': float(parts[3])
+                                })
                 
                 self.sio.emit('processes_result', {
                     'status': 'success',
@@ -274,15 +303,23 @@ class AdminAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def kill_process(data):
             """Kill a process"""
             pid = data.get('pid')
             
             try:
-                proc = psutil.Process(pid)
-                proc.terminate()
+                try:
+                    import psutil
+                    proc = psutil.Process(pid)
+                    proc.terminate()
+                except ImportError:
+                    # Fallback without psutil
+                    if platform.system() == 'Windows':
+                        subprocess.run(['taskkill', '/PID', str(pid), '/F'], capture_output=True)
+                    else:
+                        subprocess.run(['kill', '-9', str(pid)], capture_output=True)
                 
                 self.sio.emit('kill_result', {
                     'status': 'success',
@@ -295,7 +332,7 @@ class AdminAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
-
+        
         @self.sio.event
         def wake_on_lan(data):
             """Send Wake-on-LAN packet"""
@@ -309,7 +346,7 @@ class AdminAgent:
                 'message': 'Magic packet sent' if success else 'Failed to send WOL packet',
                 'command_id': data.get('command_id')
             })
-
+        
         @self.sio.event
         def screenshot(data):
             """Take screenshot"""

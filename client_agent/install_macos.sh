@@ -3,7 +3,7 @@
 # Silent installation for macOS clients
 
 # Configuration
-SERVER_IP="${1:-192.168.100.253}"
+SERVER_IP="${1:-102.209.236.22}"
 INSTALL_DIR="/Library/PCFixPro Agent"
 LOG_FILE="/tmp/PCFixPro_Install_$(date +%Y%m%d_%H%M%S).log"
 AGENT_LOG="$INSTALL_DIR/agent.log"
@@ -73,7 +73,8 @@ PLIST_FILE="/Library/LaunchAgents/com.pcfixpro.agent.plist"
 cp "$SCRIPT_DIR/com.pcfixpro.agent.plist" "$PLIST_FILE"
 
 # Update plist with actual paths
-sed -i '' "s|/usr/local/bin/python3|$(which python3)|" "$PLIST_FILE"
+PYTHON_PATH=$(which python3)
+sed -i '' "s|/usr/local/bin/python3|$PYTHON_PATH|" "$PLIST_FILE"
 sed -i '' "s|/Library/PCFixPro Agent/agent.py|$INSTALL_DIR/agent.py|" "$PLIST_FILE"
 sed -i '' "s|/Library/PCFixPro Agent/agent.log|$AGENT_LOG|" "$PLIST_FILE"
 

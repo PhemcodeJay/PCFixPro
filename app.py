@@ -76,10 +76,10 @@ try:
     # USDT token mint address on Solana (SPL Token)
     USDT_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4w45844Nh9D9Jv"
     # Your receiving wallet address
-    RECIPIENT_WALLET = "7xK9...3mN2"  # Replace with actual wallet
-except ImportError:
+    RECIPIENT_WALLET = "CJJvHNh6FRjx3PK5zCKzwhzC7Hr1vwxxYETb7FaaA1PY"
+except (ImportError, ModuleNotFoundError, Exception) as e:
     SOLANA_ENABLED = False
-    print("[WARNING] Solana library not installed. Using mock payment verification.")
+    print(f"[WARNING] Solana library not installed or error: {e}. Using mock payment verification.")
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -97,6 +97,14 @@ session_tokens = {}  # {token: {customer_id, agent_id, expires_at}}
 
 @app.route('/')
 def index():
+    # Serve index.html for public landing page
+    try:
+        return send_file('index.html')
+    except:
+        return render_template('dashboard.html')
+
+@app.route('/dashboard')
+def dashboard():
     return render_template('dashboard.html')
 
 @app.route('/sessions')

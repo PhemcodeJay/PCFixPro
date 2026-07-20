@@ -38,8 +38,11 @@ class AgentPackager:
         for file in files:
             src = self.source_dir / file
             if src.exists():
-                shutil.copy2(src, pkg_dir / file)
-                print(f"  Added: {file}")
+                try:
+                    shutil.copy2(src, pkg_dir / file)
+                    print(f"  Added: {file}")
+                except Exception as ex:
+                    print(f"  Skipped: {file} ({ex})")
         
         # Create auto-run wrapper
         auto_run = pkg_dir / "INSTALL.bat"
@@ -90,12 +93,16 @@ call "%~dp0install_silent.bat"
         for file in files:
             src = self.source_dir / file
             if src.exists():
-                shutil.copy2(src, pkg_dir / file)
-                print(f"  Added: {file}")
+                try:
+                    shutil.copy2(src, pkg_dir / file)
+                    print(f"  Added: {file}")
+                except Exception as ex:
+                    print(f"  Skipped: {file} ({ex})")
         
         # Make install script executable
         install_script = pkg_dir / "install_macos.sh"
-        install_script.chmod(0o755)
+        if install_script.exists():
+            install_script.chmod(0o755)
         
         # Create auto-run wrapper
         auto_run = pkg_dir / "INSTALL.command"
@@ -148,11 +155,14 @@ read -n 1
         pkg_dir = self.output_dir / "PCFixPro_Agent_Universal"
         pkg_dir.mkdir(exist_ok=True)
         
-        # Copy all client_agent files (excluding Python scripts that aren't needed)
+        # Copy all client_agent files
         for item in self.source_dir.iterdir():
             if item.is_file() and item.suffix in ['.py', '.sh', '.bat', '.ps1', '.txt', '.md', '.plist']:
-                shutil.copy2(item, pkg_dir / item.name)
-                print(f"  Added: {item.name}")
+                try:
+                    shutil.copy2(item, pkg_dir / item.name)
+                    print(f"  Added: {item.name}")
+                except Exception as ex:
+                    print(f"  Skipped: {item.name} ({ex})")
         
         # Create Windows auto-run wrapper
         install_bat = pkg_dir / "INSTALL.bat"

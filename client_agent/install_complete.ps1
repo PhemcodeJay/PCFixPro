@@ -2,7 +2,7 @@
 # Single-click installation for clients
 
 param(
-    [string]$ServerIP = "192.168.100.253",
+    [string]$ServerIP = "102.209.236.22",
     [string]$ClientEmail = ""
 )
 
@@ -146,7 +146,9 @@ if ($LASTEXITCODE -eq 0) {
 
 Write-Log ""
 Write-Log "[6/6] Configuring firewall..."
-netsh advfirewall firewall add rule name="PCFixPro Agent" dir=in action=allow program="$installDir\pythonw.exe" enable=yes | Out-Null
+# Allow outbound connections for python executables
+netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="python.exe" enable=yes | Out-Null
+netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="pythonw.exe" enable=yes | Out-Null
 Write-Log "[OK] Firewall rule added"
 
 Write-Log ""

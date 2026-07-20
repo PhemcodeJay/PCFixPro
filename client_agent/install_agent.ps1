@@ -2,7 +2,7 @@
 # This script creates the MSI and installs the agent
 
 param(
-    [string]$ServerIP = "192.168.100.253"
+    [string]$ServerIP = "102.209.236.22"
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -156,7 +156,7 @@ if ($LASTEXITCODE -eq 0) {
 
 # Create firewall exception
 Write-Host "[5/5] Configuring firewall..." -ForegroundColor Yellow
-netsh advfirewall firewall add rule name="PCFixPro Agent" dir=in action=allow program="$installDir\pythonw.exe" enable=yes | Out-Null
+netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="pythonw.exe" enable=yes | Out-Null
 Write-Host "[OK] Firewall rule added" -ForegroundColor Green
 
 # Completion

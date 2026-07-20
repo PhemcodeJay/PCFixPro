@@ -527,6 +527,9 @@ function setupFileManagerEvents() {
   });
 }
 
+// Store selected row element for proper selection handling
+let selectedRowElement = null;
+
 // Open file manager for agent
 function openFileManager(agentId, agentName) {
   currentAgentId = agentId;
@@ -573,7 +576,7 @@ function displayFileList(files, path) {
   
   files.forEach(file => {
     const tr = document.createElement('tr');
-    tr.onclick = () => selectFile(file.path, file.is_dir);
+    tr.onclick = (event) => selectFile(file.path, file.is_dir, tr, event);
     
     const icon = file.is_dir ? 'fa-folder folder' : (file.name.match(/\.(jpg|jpeg|png|gif)$/i) ? 'fa-file-image image' : 'fa-file file');
     const size = file.is_dir ? '-' : formatFileSize(file.size);
@@ -605,11 +608,16 @@ function formatFileSize(bytes) {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Select file
-function selectFile(path, isDir) {
+// Select file - fixed to use event parameter instead of deprecated window.event
+function selectFile(path, isDir, rowElement, event) {
   selectedFilePath = path;
-  document.querySelectorAll('.file-table tbody tr').forEach(tr => tr.classList.remove('selected'));
-  event.target.closest('tr').classList.add('selected');
+  const rows = document.querySelectorAll('.file-table tbody tr');
+  rows.forEach(tr => tr.classList.remove('selected'));
+  
+  // Use the passed row element instead of window.event
+  if (rowElement) {
+    rowElement.classList.add('selected');
+  }
   document.getElementById('selectedFile').value = path;
 }
 
@@ -774,7 +782,7 @@ document.getElementById('connectModal')?.addEventListener('click', (e) => {
   }
 });
 
-// Page navigation function
+// Page navigation function - fixed window.event issue
 function navigateToPage(page) {
   // Hide all pages
   document.querySelectorAll('.page-section').forEach(section => {
@@ -802,10 +810,13 @@ function navigateToPage(page) {
   }
   
   // Update nav active state
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  const clickedItem = event?.target?.closest('.nav-item');
-  if (clickedItem) {
-    clickedItem.classList.add('active');
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => item.classList.remove('active'));
+  
+  // Find the active nav item based on the page parameter
+  const activeNavItem = document.querySelector(`.nav-item[onclick*="${page}"]`);
+  if (activeNavItem) {
+    activeNavItem.classList.add('active');
   }
   
   return false;

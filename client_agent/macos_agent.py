@@ -85,7 +85,7 @@ class RemoteAgent:
                 
                 output = {
                     'command_id': command_id,
-                    'output': result.stdout + result.stderr,
+                    'output': (result.stdout or '') + (result.stderr or ''),
                     'return_code': result.returncode,
                     'timestamp': datetime.now().isoformat()
                 }
@@ -117,6 +117,8 @@ class RemoteAgent:
             
             try:
                 entries = []
+                if not os.path.exists(path):
+                    raise FileNotFoundError(f"Path does not exist: {path}")
                 for item in sorted(os.listdir(path)):
                     full_path = os.path.join(path, item)
                     try:
@@ -154,7 +156,9 @@ class RemoteAgent:
             
             try:
                 file_data = base64.b64decode(content_b64)
-                full_path = os.path.join(remote_path, filename)
+                # Sanitize filename
+                safe_filename = os.path.basename(filename)
+                full_path = os.path.join(remote_path, safe_filename)
                 
                 with open(full_path, 'wb') as f:
                     f.write(file_data)
@@ -208,7 +212,7 @@ class RemoteAgent:
             
             try:
                 if os.path.isdir(file_path):
-                    os.rmdir(file_path)
+                    shutil.rmtree(file_path)
                 else:
                     os.remove(file_path)
                 
@@ -230,10 +234,10 @@ class RemoteAgent:
             print(f"[AGENT] Taking screenshot...")
             
             try:
-                # Try to use PIL/Pillow if available
+                # macOS screenshot with pyscreenshot or subprocess
                 try:
-                    from PIL import ImageGrab
-                    img = ImageGrab.grab()
+                    import pyscreenshot
+                    img = pyscreenshot.grab()
                     buffered = BytesIO()
                     img.save(buffered, format="PNG")
                     content_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
@@ -245,11 +249,23 @@ class RemoteAgent:
                         'command_id': data.get('command_id')
                     })
                 except ImportError:
-                    self.sio.emit('screenshot_result', {
-                        'status': 'error',
-                        'error': 'PIL/Pillow not installed',
-                        'command_id': data.get('command_id')
-                    })
+                    # Try subprocess screencapture on macOS
+                    result = subprocess.run(['screencapture', '-t', 'png', '-'], 
+                                          capture_output=True)
+                    if result.returncode == 0 and result.stdout:
+                        content_b64 = base64.b64encode(result.stdout).decode('utf-8')
+                        self.sio.emit('screenshot_result', {
+                            'status': 'success',
+                            'content': content_b64,
+                            'format': 'png',
+                            'command_id': data.get('command_id')
+                        })
+                    else:
+                        self.sio.emit('screenshot_result', {
+                            'status': 'error',
+                            'error': 'Screenshot not available on this system',
+                            'command_id': data.get('command_id')
+                        })
             except Exception as e:
                 self.sio.emit('screenshot_result', {
                     'status': 'error',
@@ -284,7 +300,7 @@ class RemoteAgent:
 
 if __name__ == "__main__":
     # Default server URL - can be overridden by environment variable
-    SERVER_URL = os.environ.get('PCFIXPRO_SERVER_URL', 'http://192.168.100.253:5000')
+    SERVER_URL = os.environ.get('PCFIXPRO_SERVER_URL', 'http://102.209.236.22:5000')
     
     # If running as installed service/LaunchAgent, read config from install directory
     if hasattr(sys, '_MEIPASS'):

@@ -39,7 +39,7 @@ setlocal enabledelayedexpansion
     if server_ip:
         installer_content += f"set SERVER_IP={server_ip}\n"
     else:
-        installer_content += f"set SERVER_IP=192.168.100.253\n"
+        installer_content += f"set SERVER_IP=102.209.236.22\n"
     
     installer_content += """
 echo ========================================
@@ -166,12 +166,12 @@ pause >nul
     
     installer_path.write_text(installer_content)
     print(f"[OK] Created: {installer_path}")
-    print(f"[INFO] Server IP: {server_ip or '192.168.100.253'}")
+    print(f"[INFO] Server IP: {server_ip or '102.209.236.22'}")
     print("[INFO] This installer is fully self-contained - no external ZIP needed!")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Create embedded installer')
-    parser.add_argument('--server-ip', help='Server IP address to configure', default='192.168.100.253')
+    parser.add_argument('--server-ip', help='Server IP address to configure', default='102.209.236.22')
     args = parser.parse_args()
     create_embedded_installer(args.server_ip)

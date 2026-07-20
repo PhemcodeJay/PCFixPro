@@ -183,7 +183,7 @@
                   <th>IP Address</th>
                   <th>OS</th>
                   <th>Status</th>
-                  <th>Last Seen</th>
+<th>Last Seen</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -195,7 +195,16 @@
                 </tr>
               </tbody>
             </table>
-          </div>
+            <div style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
+              <p><strong>Agent Connectivity:</strong></p>
+              <p><i class="fas fa-info-circle"></i> Once agents connect, use the action buttons to:</p>
+<ul style="margin-left: 1.5rem; color: #64748b;">
+                <li><i class="fas fa-desktop"></i> RDP - Remote Desktop connection to client PC</li>
+                <li><i class="fas fa-terminal"></i> SSH - Secure shell access to client terminal</li>
+                <li><i class="fas fa-folder-open"></i> Files - Browse and manage client files</li>
+                <li><i class="fas fa-plug"></i> Terminal - Execute commands on client</li>
+              </ul>
+            </div>
         </div>
       </div>
 
@@ -252,7 +261,7 @@
             <form id="settingsForm">
               <div class="form-group">
                 <label>Server URL</label>
-                <input type="text" id="serverUrl" value="http://localhost:5000" placeholder="http://your-server-ip:5000">
+<input type="text" id="serverUrl" value="http://102.209.236.22:5000" placeholder="http://your-server-ip:5000">
               </div>
               <div class="form-group">
                 <label>Auto-refresh Interval (seconds)</label>

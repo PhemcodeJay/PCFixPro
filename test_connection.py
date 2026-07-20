@@ -5,7 +5,7 @@ import time
 import threading
 import random
 
-SERVER_URL = "http://192.168.100.253:5000"
+SERVER_URL = "http://102.209.236.22:5000"
 
 class TestAgent:
     def __init__(self, agent_id):

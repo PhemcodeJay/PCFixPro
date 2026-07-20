@@ -54,11 +54,11 @@ if __name__ == "__main__":
     base = r'c:\Users\Bossman\Documents\PCFixPro'
     
     # Check BAT files
+    # Check only existing BAT files
     bat_files = [
         os.path.join(base, 'downloads', 'PCFixPro_AutoInstall.bat'),
-        os.path.join(base, 'downloads', 'PCFixPro_Installer.bat'),
-        os.path.join(base, 'downloads', 'PCFixPro_QuickInstall.bat'),
-        os.path.join(base, 'ScreenConnect', 'install.bat')
+        os.path.join(base, 'client_agent', 'setup_agent.bat'),
+        os.path.join(base, 'client_agent', 'install_silent.bat'),
     ]
     
     print("=" * 60)

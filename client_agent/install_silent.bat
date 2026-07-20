@@ -5,7 +5,7 @@ REM Fully automated installation with logging
 setlocal
 
 REM Configuration - EDIT THESE VALUES
-set SERVER_IP=192.168.100.253
+set SERVER_IP=102.209.236.22
 set INSTALL_DIR=C:\Program Files\PCFixPro Agent
 set LOG_FILE=%INSTALL_DIR%\install.log
 set DESKTOP=%USERPROFILE%\Desktop
@@ -61,8 +61,9 @@ if %errorLevel% equ 0 (
     pythonw.exe agent.py
 )
 
-REM Create firewall rule
-netsh advfirewall firewall add rule name="PCFixPro Agent" dir=in action=allow program="%INSTALL_DIR%\pythonw.exe" enable=yes >> "%LOG_FILE%" 2>&1
+REM Create firewall rule (allow python executables for outbound connections)
+netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="python.exe" enable=yes >nul 2>&1
+netsh advfirewall firewall add rule name="PCFixPro Agent" dir=out action=allow program="pythonw.exe" enable=yes >nul 2>&1
 
 REM Create desktop shortcut to logs
 echo [%date% %time%] Creating desktop shortcut... >> "%LOG_FILE%"

