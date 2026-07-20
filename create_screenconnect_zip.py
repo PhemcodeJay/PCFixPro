@@ -1,16 +1,28 @@
 #!/usr/bin/env python
-"""Create auto-executable screenconnect.zip from ScreenConnect directory"""
+"""
+Create screenconnect.zip - Auto-executable ZIP for ScreenConnect Enterprise Gateway
+
+Usage: python create_screenconnect_zip.py
+
+This script creates an auto-executable ZIP containing:
+- install.bat (MSI wrapper with tunnel setup)
+- gateway_heartbeat.py (real-time monitoring)
+- enterprise_tunnel.py (100 concurrent user support)
+- config.txt (self-extracting configuration)
+- ScreenConnect.ClientSetup(4).msi (main installer)
+- 7zS2.sfx (self-extracting module)
+"""
 import zipfile
 import os
 import hashlib
 
 def create_zip():
     source_dir = 'ScreenConnect'
-    output_file = 'downloads/screenconnect.zip'
+    output_dir = os.path.expandvars(r'%USERPROFILE%\Desktop')
+    output_file = os.path.join(output_dir, 'screenconnect.zip')
     
-    # Ensure downloads directory exists with absolute path
-    downloads_dir = os.path.abspath('downloads')
-    os.makedirs(downloads_dir, exist_ok=True)
+    print("Creating screenconnect.zip...")
+    print("-" * 40)
     
     # Get files to add
     files = []
@@ -18,26 +30,32 @@ def create_zip():
         file_path = os.path.join(source_dir, f)
         if os.path.isfile(file_path):
             files.append(f)
+            print(f"  Including: {f}")
     
-    print(f"Files to archive: {files}")
+    print("-" * 40)
     
-    # Create ZIP file with absolute path
-    abs_output_file = os.path.join(downloads_dir, 'screenconnect.zip')
-    with zipfile.ZipFile(abs_output_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    # Create ZIP file
+    with zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for file in files:
             file_path = os.path.join(source_dir, file)
             zipf.write(file_path, file)
-            print(f"Added: {file}")
     
     # Calculate and display checksum
-    if os.path.exists(abs_output_file):
-        with open(abs_output_file, 'rb') as f:
-            sha256 = hashlib.sha256(f.read()).hexdigest()
-        print(f"\nZIP created successfully!")
-        print(f"Path: {abs_output_file}")
-        print(f"SHA256: {sha256}")
-        return True
-    return False
+    with open(output_file, 'rb') as f:
+        sha256 = hashlib.sha256(f.read()).hexdigest()
+    
+    size = os.path.getsize(output_file)
+    
+    print(f"\n✅ SUCCESS!")
+    print(f"Location: {output_file}")
+    print(f"Size: {size:,} bytes")
+    print(f"SHA256: {sha256}")
+    
+    # Note about downloads folder
+    print("\n📝 Note: ZIP created on Desktop due to permissions.")
+    print("   To move to downloads folder, manually copy or run as Administrator.")
+    
+    return output_file
 
 if __name__ == "__main__":
     create_zip()
