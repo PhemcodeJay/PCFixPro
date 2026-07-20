@@ -1,7 +1,0 @@
-Test the integrity of the ZIP files (checksum verification) and BAT files (syntax check) before deployment.
-
-Execute the BAT files to establish simultaneous RDP/SSH tunnels for up to 100 concurrent enterprise users.
-
-Ensure every connection pushes a "Heartbeat" to the dashboard showing the Customer ID, Assigned IP, and Session Status in real-time.
-
-Troubleshoot common disconnection issues (timeouts, port exhaustion) and suggest scaling strategies (like using a reverse proxy or gateway) suitable for an enterprise LLC. and convert all files in screnconnect directory into an autoexecutable zip file saved in downloads as screenconnect.zip

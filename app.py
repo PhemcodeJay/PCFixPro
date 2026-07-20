@@ -364,20 +364,48 @@ def handle_register_agent(data):
 
 @socketio.on('heartbeat')
 def handle_heartbeat(data):
+    global agent_counter
     agent_id = data.get('agent_id')
     customer_id = data.get('customer_id')
     assigned_ip = data.get('assigned_ip')
     session_status = data.get('session_status')
     
-    if agent_id in connected_agents:
-        connected_agents[agent_id]['last_seen'] = datetime.now().isoformat()
-        connected_agents[agent_id]['status'] = 'online'
-        
-        # Store heartbeat data for dashboard display
-        connected_agents[agent_id]['customer_id'] = customer_id
-        connected_agents[agent_id]['assigned_ip'] = assigned_ip
-        connected_agents[agent_id]['session_status'] = session_status
-        connected_agents[agent_id]['active_connections'] = data.get('active_connections', 0)
+    # Auto-create agent if not exists (for gateway agents)
+    if agent_id not in connected_agents:
+        agent_counter += 1
+        connected_agents[agent_id] = {
+            'agent_id': agent_id,
+            'hostname': f"Gateway-{agent_id}",
+            'ip_address': "N/A",
+            'os': 'Unknown',
+            'status': 'online',
+            'agent_version': 'gateway',
+            'last_seen': datetime.now().isoformat()
+        }
+    
+    connected_agents[agent_id]['last_seen'] = datetime.now().isoformat()
+    connected_agents[agent_id]['status'] = 'online'
+    
+    # Store heartbeat data for dashboard display
+    connected_agents[agent_id]['customer_id'] = customer_id
+    connected_agents[agent_id]['assigned_ip'] = assigned_ip
+    connected_agents[agent_id]['session_status'] = session_status
+    connected_agents[agent_id]['active_connections'] = data.get('active_connections', 0)
+    
+    # Also create active session for the connection
+    if customer_id and assigned_ip:
+        session_key = f"session_{agent_id}_{int(time.time())}"
+        active_sessions[session_key] = {
+            'session_id': session_key,
+            'customer_id': customer_id,
+            'host': assigned_ip,
+            'port': 3389,
+            'username': 'gateway_user',
+            'connected': True,
+            'start_time': datetime.now().isoformat(),
+            'status': session_status,
+            'agent_id': agent_id
+        }
     
     # Emit real-time heartbeat to dashboard
     socketio.emit('heartbeat_update', {
@@ -385,7 +413,8 @@ def handle_heartbeat(data):
         'customer_id': customer_id,
         'assigned_ip': assigned_ip,
         'session_status': session_status,
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'active_connections': data.get('active_connections', 0)
     }, broadcast=True)
 
 @socketio.on('command_result')

@@ -1,6 +1,0 @@
-;!@Install@!UTF-8!
-Title="PCFixPro ScreenConnect Enterprise Gateway"
-RunAsOriginalUser=true
-ExecuteFile="install.bat"
-ExecuteParameters=""
-;!@InstallEnd@!
