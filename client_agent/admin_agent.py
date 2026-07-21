@@ -271,7 +271,7 @@ class AdminAgent:
                 except ImportError:
                     # Fallback without psutil
                     if platform.system() == 'Windows':
-                        import wmi
+                        import wmi  # type: ignore
                         c = wmi.WMI()
                         for proc in c.Win32_Process():
                             processes.append({

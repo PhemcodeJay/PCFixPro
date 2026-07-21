@@ -68,8 +68,8 @@ SERVER_SSH_KEY = generate_ssh_keys()
 
 # Solana blockchain integration
 try:
-    from solana.rpc.api import Client
-    from solders.signature import Signature
+    from solana.rpc.api import Client  # type: ignore
+    from solders.signature import Signature  # type: ignore
     SOLANA_RPC = "https://api.mainnet-beta.solana.com"
     SOLANA_CLIENT = Client(SOLANA_RPC)
     SOLANA_ENABLED = True
@@ -187,7 +187,7 @@ def execute_command():
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(host, port=port, username=username, password=password, timeout=5)
             stdin, stdout, stderr = ssh.exec_command(command)
-            output = stdout.read().decode() + stderr.read().decode()
+            output = (stdout.read().decode() or '') + (stderr.read().decode() or '')
             ssh.close()
             
             return jsonify({

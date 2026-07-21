@@ -11,6 +11,7 @@ import platform
 import subprocess
 import threading
 import time
+import shutil
 from datetime import datetime
 import base64
 from io import BytesIO
@@ -236,7 +237,7 @@ class RemoteAgent:
             try:
                 # macOS screenshot with pyscreenshot or subprocess
                 try:
-                    import pyscreenshot
+                    import pyscreenshot  # type: ignore
                     img = pyscreenshot.grab()
                     buffered = BytesIO()
                     img.save(buffered, format="PNG")
