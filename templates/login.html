@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCFixPro · Login</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-container {
+      background: white;
+      padding: 3rem;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 400px;
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .login-header i {
+      font-size: 3rem;
+      color: #0066ff;
+      margin-bottom: 1rem;
+    }
+    .login-header h1 {
+      font-size: 1.8rem;
+      color: #0f172a;
+      margin-bottom: 0.5rem;
+    }
+    .login-header p {
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #475569;
+      font-size: 0.9rem;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.9rem 1rem;
+      border: 1px solid #d0d8e2;
+      border-radius: 12px;
+      font-size: 1rem;
+      transition: 0.2s;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: #0066ff;
+      box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+    }
+    .btn-login {
+      width: 100%;
+      padding: 1rem;
+      background: #0066ff;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: 1rem;
+    }
+    .btn-login:hover {
+      background: #0047b3;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,102,255,0.3);
+    }
+    .alert {
+      padding: 1rem;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      font-size: 0.9rem;
+    }
+    .back-link {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #64748b;
+    }
+    .back-link a {
+      color: #0066ff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .back-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <i class="fas fa-satellite-dish"></i>
+      <h1>Command Center</h1>
+      <p>PCFixPro Remote Management</p>
+    </div>
+    
+    {% if error %}
+    <div class="alert">
+      <i class="fas fa-exclamation-circle"></i> {{ error }}
+    </div>
+    {% endif %}
+    
+    <form method="POST" action="{{ url_for('login') }}">
+      <div class="form-group">
+        <label for="username"><i class="fas fa-user"></i> Username</label>
+        <input type="text" id="username" name="username" required autofocus placeholder="Enter username">
+      </div>
+      
+      <div class="form-group">
+        <label for="password"><i class="fas fa-lock"></i> Password</label>
+        <input type="password" id="password" name="password" required placeholder="Enter password">
+      </div>
+      
+      <button type="submit" class="btn-login">
+        <i class="fas fa-sign-in-alt"></i> Sign In
+      </button>
+    </form>
+    
+    <div class="back-link">
+      <a href="/"><i class="fas fa-arrow-left"></i> Back to Home</a>
+    </div>
+  </div>
+</body>
+</html>

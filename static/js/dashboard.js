@@ -334,42 +334,28 @@ function initTerminal() {
       } else if (command === 'connect' || command.startsWith('connect ')) {
         openConnectModal();
       } else {
-        // Simulate basic commands when no session active OR allow simulated mode
-        // Always allow simulated commands for demo/testing
-        if (command === 'ls' || command === 'dir') {
-          addTerminalLine('System32  Users  Program Files  Downloads  Documents', 'info');
-        } else if (command === 'pwd') {
-          addTerminalLine('C:\\Users\\Public', 'info');
-        } else if (command === 'whoami') {
-          addTerminalLine('PCFixPro Administrator', 'info');
-        } else if (command === 'echo test') {
-          addTerminalLine('test', 'info');
-        } else {
-          // Try to send to server if we have a session
-          if (!currentSessionId) {
-            addTerminalLine(`Command: ${command}`, 'info');
-            addTerminalLine('Output: [simulated mode - no active session]', 'warning');
-            return;
+        // Send command to server for real execution - no simulated responses
+        if (!currentSessionId) {
+          addTerminalLine('No active session. Use "connect" to establish a session.', 'warning');
+          return;
+        }
+        try {
+          const response = await fetch('/api/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session_id: currentSessionId,
+              command: command
+            })
+          });
+          const data = await response.json();
+          if (data.status === 'success') {
+            addTerminalLine(data.output, 'success');
+          } else {
+            addTerminalLine(`Error: ${data.message}`, 'error');
           }
-          // Send command to server for real execution
-          try {
-            const response = await fetch('/api/execute', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                session_id: currentSessionId,
-                command: command
-              })
-            });
-            const data = await response.json();
-            if (data.status === 'success') {
-              addTerminalLine(data.output, 'success');
-            } else {
-              addTerminalLine(`Error: ${data.message}`, 'error');
-            }
-          } catch (error) {
-            addTerminalLine(`Error: ${error.message}`, 'error');
-          }
+        } catch (error) {
+          addTerminalLine(`Error: ${error.message}`, 'error');
         }
       }
     }
@@ -773,6 +759,38 @@ function downloadScreenshot() {
   link.href = img.src;
   link.download = `screenshot_${Date.now()}.png`;
   link.click();
+}
+
+// Open File Explorer on client PC
+function openFileExplorer() {
+  if (!currentAgentId) {
+    alert('Please select an agent first');
+    return;
+  }
+  
+  // Check if agent is online
+  fetch('/api/agents')
+    .then(r => r.json())
+    .then(data => {
+      const agents = data.agents || {};
+      const agent = Object.values(agents).find(a => a.agent_id === currentAgentId);
+      
+      if (!agent || agent.status !== 'online') {
+        alert('Agent is offline. Cannot open File Explorer.');
+        return;
+      }
+      
+      // Send command to open file explorer on client
+      socket.emit('open_file_explorer', {
+        agent_id: currentAgentId,
+        command_id: `explorer_${Date.now()}`
+      });
+      
+      addTerminalLine(`Opening File Explorer on ${agent.hostname}...`, 'info');
+    })
+    .catch(err => {
+      addTerminalLine(`Error: ${err.message}`, 'error');
+    });
 }
 
 // Close modal on backdrop click

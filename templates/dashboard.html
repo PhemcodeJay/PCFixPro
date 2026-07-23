@@ -183,7 +183,7 @@
                   <th>IP Address</th>
                   <th>OS</th>
                   <th>Status</th>
-<th>Last Seen</th>
+                  <th>Last Seen</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -198,11 +198,12 @@
             <div style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
               <p><strong>Agent Connectivity:</strong></p>
               <p><i class="fas fa-info-circle"></i> Once agents connect, use the action buttons to:</p>
-<ul style="margin-left: 1.5rem; color: #64748b;">
-                <li><i class="fas fa-desktop"></i> RDP - Remote Desktop connection to client PC</li>
-                <li><i class="fas fa-terminal"></i> SSH - Secure shell access to client terminal</li>
-                <li><i class="fas fa-folder-open"></i> Files - Browse and manage client files</li>
-                <li><i class="fas fa-plug"></i> Terminal - Execute commands on client</li>
+              <ul style="margin-left: 1.5rem; color: #64748b;">
+                <li><i class="fas fa-desktop"></i> <strong>RDP/SSH/VNC</strong> - Remote desktop connections</li>
+                <li><i class="fas fa-terminal"></i> <strong>Terminal</strong> - Execute commands on client</li>
+                <li><i class="fas fa-folder-open"></i> <strong>File Explorer</strong> - Browse and manage client files (opens Windows File Explorer)</li>
+                <li><i class="fas fa-plug"></i> <strong>Processes</strong> - List and kill processes</li>
+                <li><i class="fas fa-camera"></i> <strong>Screenshot</strong> - Capture client screen</li>
               </ul>
             </div>
         </div>
@@ -218,9 +219,9 @@
           <div class="card-body terminal-body">
             <div class="terminal" id="terminal">
               <div class="terminal-output" id="terminalOutput">
-                <div class="terminal-line info">Welcome to PCFixPro Command Center v1.0</div>
+                <div class="terminal-line info">Welcome to PCFixPro Command Center</div>
+                <div class="terminal-line info">Connect to an agent to execute commands.</div>
                 <div class="terminal-line info">Type 'help' for available commands.</div>
-                <div class="terminal-line info">Select an agent to execute real commands.</div>
               </div>
               <div class="terminal-input-line">
                 <span class="prompt">$</span>
@@ -285,6 +286,7 @@
         </div>
         <div class="card-body">
           <div class="file-toolbar">
+            <button class="btn-small" onclick="openFileExplorer()" title="Open File Explorer on client"><i class="fas fa-window-maximize"></i> Open File Explorer</button>
             <button class="btn-small" onclick="uploadFile()"><i class="fas fa-upload"></i> Upload</button>
             <button class="btn-small" onclick="downloadSelected()"><i class="fas fa-download"></i> Download</button>
             <button class="btn-small" onclick="deleteSelected()"><i class="fas fa-trash"></i> Delete</button>

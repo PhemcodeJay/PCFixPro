@@ -640,73 +640,52 @@
   <div class="container">
     <div class="ccc-header">
       <h2><i class="fas fa-satellite-dish" style="color:var(--primary);"></i> Command & Control Center</h2>
-      <p>Real-time operations dashboard · live system status</p>
+      <p>Remote management dashboard · secure agent connections</p>
     </div>
     <div class="ccc-grid">
       <!-- Active Sessions -->
       <div class="ccc-card">
         <div class="ccc-card-header"><i class="fas fa-desktop"></i> ACTIVE SESSIONS</div>
-        <div class="ccc-metric">42<span class="unit">/ 100</span></div>
-        <div class="ccc-status"><span class="ccc-dot live"></span> 42% capacity</div>
-        <div class="ccc-chart">
-          <div class="ccc-bar" style="height:40%"></div>
-          <div class="ccc-bar" style="height:55%"></div>
-          <div class="ccc-bar" style="height:35%"></div>
-          <div class="ccc-bar" style="height:70%"></div>
-          <div class="ccc-bar" style="height:42%"></div>
-          <div class="ccc-bar" style="height:60%"></div>
-          <div class="ccc-bar" style="height:45%"></div>
-        </div>
+        <div class="ccc-metric" id="cccSessions">0<span class="unit">/ unlimited</span></div>
+        <div class="ccc-status"><span class="ccc-dot live"></span> Ready</div>
       </div>
 
-      <!-- Network Status -->
+      <!-- Connected Agents -->
       <div class="ccc-card">
-        <div class="ccc-card-header"><i class="fas fa-network-wired"></i> NETWORK STATUS</div>
-        <div class="ccc-metric">99.9<span class="unit">%</span></div>
-        <div class="ccc-status"><span class="ccc-dot live"></span> Operational</div>
-        <div class="ccc-row"><span class="ccc-label">Latency</span><span class="ccc-value">12ms</span></div>
-        <div class="ccc-row"><span class="ccc-label">Uptime</span><span class="ccc-value">72h 15m</span></div>
-        <div class="ccc-row"><span class="ccc-label">Bandwidth</span><span class="ccc-value">1.2 Gbps</span></div>
+        <div class="ccc-card-header"><i class="fas fa-laptop-code"></i> CONNECTED AGENTS</div>
+        <div class="ccc-metric" id="cccAgents">0<span class="unit"> online</span></div>
+        <div class="ccc-status"><span class="ccc-dot live"></span> Monitoring</div>
       </div>
 
-      <!-- Security Monitor -->
+      <!-- Security Status -->
       <div class="ccc-card">
-        <div class="ccc-card-header"><i class="fas fa-shield-alt"></i> SECURITY MONITOR</div>
-        <div class="ccc-badge"><i class="fas fa-lock"></i> All Clear</div>
-        <div class="ccc-metric">0<span class="unit">threats</span></div>
-        <div class="ccc-row"><span class="ccc-label">Firewall</span><span class="ccc-value">Active</span></div>
-        <div class="ccc-row"><span class="ccc-label">Encryption</span><span class="ccc-value">AES-256</span></div>
-        <div class="ccc-row"><span class="ccc-label">Last Scan</span><span class="ccc-value">2 min ago</span></div>
+        <div class="ccc-card-header"><i class="fas fa-shield-alt"></i> SECURITY</div>
+        <div class="ccc-badge"><i class="fas fa-lock"></i> Protected</div>
+        <div class="ccc-metric">AES-256</div>
+        <div class="ccc-row"><span class="ccc-label">Encryption</span><span class="ccc-value">Active</span></div>
+        <div class="ccc-row"><span class="ccc-label">Auth</span><span class="ccc-value">Required</span></div>
       </div>
 
-      <!-- Active Alerts -->
+      <!-- System Status -->
       <div class="ccc-card">
-        <div class="ccc-card-header"><i class="fas fa-exclamation-triangle"></i> ACTIVE ALERTS</div>
-        <div class="ccc-metric">3<span class="unit"> pending</span></div>
-        <div class="ccc-alert"><strong>WARNING:</strong> Server CPU at 92% on Node-3. Auto-scaling triggered.</div>
-        <div class="ccc-row"><span class="ccc-label">Critical</span><span class="ccc-value" style="color:#ef4444;">1</span></div>
-        <div class="ccc-row"><span class="ccc-label">Warning</span><span class="ccc-value" style="color:#f59e0b;">2</span></div>
+        <div class="ccc-card-header"><i class="fas fa-heartbeat"></i> SYSTEM</div>
+        <div class="ccc-badge"><i class="fas fa-check-circle"></i> Online</div>
+        <div class="ccc-metric" id="cccUptime">0h</div>
+        <div class="ccc-row"><span class="ccc-label">Database</span><span class="ccc-value">PostgreSQL</span></div>
+        <div class="ccc-row"><span class="ccc-label">Logging</span><span class="ccc-value">Enabled</span></div>
       </div>
+    </div>
 
-      <!-- Queue Depth -->
-      <div class="ccc-card">
-        <div class="ccc-card-header"><i class="fas fa-list-ol"></i> SUPPORT QUEUE</div>
-        <div class="ccc-metric">18<span class="unit"> tickets</span></div>
-        <div class="ccc-status"><span class="ccc-dot warn"></span> Avg wait: 4m 32s</div>
-        <div class="ccc-row"><span class="ccc-label">High Priority</span><span class="ccc-value">5</span></div>
-        <div class="ccc-row"><span class="ccc-label">WhatsApp</span><span class="ccc-value">12</span></div>
-        <div class="ccc-row"><span class="ccc-label">Remote</span><span class="ccc-value">6</span></div>
-      </div>
-
-      <!-- System Health -->
-      <div class="ccc-card">
-        <div class="ccc-card-header"><i class="fas fa-heartbeat"></i> SYSTEM HEALTH</div>
-        <div class="ccc-badge"><i class="fas fa-check-circle"></i> Nominal</div>
-        <div class="ccc-metric">94<span class="unit">/ 100</span></div>
-        <div class="ccc-row"><span class="ccc-label">CPU</span><span class="ccc-value">34%</span></div>
-        <div class="ccc-row"><span class="ccc-label">Memory</span><span class="ccc-value">62%</span></div>
-        <div class="ccc-row"><span class="ccc-label">Storage</span><span class="ccc-value">45%</span></div>
-      </div>
+    <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.05); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+      <p style="color: #94a3b8; margin-bottom: 0.5rem;"><i class="fas fa-info-circle"></i> <strong>Dashboard Features:</strong></p>
+      <ul style="color: #cbd5e1; margin-left: 1.5rem; line-height: 2;">
+        <li>Real-time agent monitoring via WebSocket</li>
+        <li>Secure RDP/SSH/VNC session management</li>
+        <li>File explorer with upload/download/delete</li>
+        <li>Process management and screenshot capture</li>
+        <li>Payment verification via Solana blockchain</li>
+        <li>Complete audit logs and activity tracking</li>
+      </ul>
     </div>
   </div>
 </section>
