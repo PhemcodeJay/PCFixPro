@@ -49,13 +49,16 @@ with app.app_context():
     # Create default admin user if none exists
     if not User.query.filter_by(username='admin').first():
         admin = User(username='admin', email='admin@yourdomain.com', role='admin')
-        admin.set_password('Admin@2024!Secure')
+        admin.set_password('admin123')
         db.session.add(admin)
         db.session.commit()
-        logger.info("Created default admin user: admin / Admin@2024!Secure")
+        logger.info("Created default admin user: admin / admin123")
 
 # Rate limiting storage
 rate_limit_storage = {}
+
+# Track connected agents for socket communication
+connected_agents = {}
 
 def rate_limit(max_requests=60, window_seconds=60):
     """Rate limiting decorator"""
@@ -282,11 +285,16 @@ def execute_command():
         
         # Try SSH execution if available
         try:
+            from cryptography.fernet import Fernet
+            key = app.config.get('ENCRYPTION_KEY')
+            f = Fernet(key)
+            decrypted_password = f.decrypt(db_session.password_encrypted.encode()).decode()
+            
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(db_session.host, port=db_session.port, 
                        username=db_session.username, 
-                       password=db_session.password_encrypted, # Need to decrypt
+                       password=decrypted_password,
                        timeout=5)
             stdin, stdout, stderr = ssh.exec_command(command)
             output = (stdout.read().decode() or '') + (stderr.read().decode() or '')
@@ -414,6 +422,11 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     logger.info('Client disconnected')
+    # Clean up connected_agents tracking
+    sid = request.sid
+    to_remove = [aid for aid, s in connected_agents.items() if s == sid]
+    for aid in to_remove:
+        connected_agents.pop(aid, None)
 
 @socketio.on('register_agent')
 def handle_register_agent(data):
@@ -451,6 +464,9 @@ def handle_register_agent(data):
             'agent_id': agent_id,
             'message': f"Agent {hostname} registered successfully"
         })
+        
+        # Track connected agent
+        connected_agents[agent_id] = request.sid
         
         log_action('INFO', 'agent', f'Agent registered: {hostname} ({ip_address})')
         audit_action('register', 'agent', agent_id, success=True)

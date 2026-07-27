@@ -15,7 +15,7 @@ The PCFixPro Remote Support Agent enables secure remote management of your compu
 5. Done! The agent automatically connects to the dashboard
 
 #### Method 2: PowerShell Installer
-1. Right-click `install_agent.ps1` → "Run with PowerShell"
+1. Right-click `install_complete.ps1` → "Run with PowerShell"
 2. Enter your C&C Server IP when prompted
 3. The agent installs automatically and starts in the background
 

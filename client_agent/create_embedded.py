@@ -38,12 +38,9 @@ if (-not $ClientIP) {{ $ClientIP = "unknown" }}
 
 '''
     
-    # Add agent.py content as heredoc
-    ps_script += '@"\n'
-    for line in agent_lines:
-        escaped = line.replace('"', "'")
-        ps_script += escaped + '\n'
-    ps_script += '"@ | Out-File -FilePath "$InstallDir\\agent.py" -Encoding UTF8\n\n'
+    # Add agent.py content as base64-encoded string (avoids heredoc escaping issues)
+    agent_b64 = base64.b64encode('\n'.join(agent_lines).encode('utf-8')).decode('utf-8')
+    ps_script += f'[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("{agent_b64}")) | Out-File -FilePath "$InstallDir\\agent.py" -Encoding UTF8\n\n'
     
     ps_script += f'''
 # Write config

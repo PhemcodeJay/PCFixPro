@@ -74,11 +74,11 @@ function updateSessionUI() {
   }
   
   tbody.innerHTML = '';
-  Object.entries(sessions).forEach(([id, session]) => {
+  sessions.forEach((session) => {
     const duration = getDuration(session.start_time);
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><code>${id.slice(0, 8)}</code></td>
+      <td><code>${session.session_id.slice(0, 8)}</code></td>
       <td>${session.username}</td>
       <td>${session.host}:${session.port}</td>
       <td>
@@ -89,13 +89,13 @@ function updateSessionUI() {
       </td>
       <td>${duration}</td>
       <td>
-        <button class="btn-action" onclick="connectToSession('${id}')" title="Connect">
+        <button class="btn-action" onclick="connectToSession('${session.session_id}')" title="Connect">
           <i class="fas fa-external-link-alt"></i>
         </button>
-        <button class="btn-action" onclick="executeCommand('${id}')" title="Execute">
+        <button class="btn-action" onclick="executeCommand('${session.session_id}')" title="Execute">
           <i class="fas fa-terminal"></i>
         </button>
-        <button class="btn-action danger" onclick="disconnectSession('${id}')" title="Disconnect">
+        <button class="btn-action danger" onclick="disconnectSession('${session.session_id}')" title="Disconnect">
           <i class="fas fa-times"></i>
         </button>
       </td>
@@ -132,7 +132,7 @@ function updateAgentUI(agents) {
     statusText.textContent = `${onlineCount} online · ${count} total`;
     
     agentsList.innerHTML = '';
-    Object.entries(agents).forEach(([id, agent]) => {
+    agents.forEach((agent) => {
       const agentDiv = document.createElement('div');
       agentDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.6rem; border-bottom: 1px solid #f1f5f9;';
       agentDiv.innerHTML = `
@@ -140,7 +140,7 @@ function updateAgentUI(agents) {
           <div style="font-weight: 600; color: var(--dark);">${agent.hostname}</div>
           <div style="font-size: 0.85rem; color: #64748b;">${agent.ip_address} · ${agent.os}</div>
         </div>
-        <button class="btn-small" onclick="openFileManager('${id}', '${agent.hostname}')" title="Browse Files">
+        <button class="btn-small" onclick="openFileManager('${agent.agent_id}', '${agent.hostname}')" title="Browse Files">
           <i class="fas fa-folder-open"></i> Files
         </button>
       `;

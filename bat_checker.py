@@ -51,7 +51,7 @@ def calculate_sha256(filepath):
         return hashlib.sha256(f.read()).hexdigest()
 
 if __name__ == "__main__":
-    base = r'c:\Users\Bossman\Documents\PCFixPro'
+    base = os.path.dirname(os.path.abspath(__file__))
     
     # Check BAT files
     # Check only existing BAT files
