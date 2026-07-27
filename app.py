@@ -49,10 +49,10 @@ with app.app_context():
     # Create default admin user if none exists
     if not User.query.filter_by(username='admin').first():
         admin = User(username='admin', email='admin@yourdomain.com', role='admin')
-        admin.set_password('change-this-password')
+        admin.set_password('Admin@2024!Secure')
         db.session.add(admin)
         db.session.commit()
-        logger.info("Created default admin user: admin / change-this-password")
+        logger.info("Created default admin user: admin / Admin@2024!Secure")
 
 # Rate limiting storage
 rate_limit_storage = {}

@@ -17,9 +17,9 @@ postgresql://neondb_owner:npg_iX2Nku1PgDqr@ep-old-pond-ay0oecd8-pooler.c-5.us-ea
 **Old:** Dashboard publicly accessible  
 **New:** Login required for all dashboard routes
 
-**Default Credentials:**
+**Default Credentials:** 
 - Username: `admin`
-- Password: `change-this-password` (CHANGE ON FIRST LOGIN)
+- Password: `Admin@2024!Secure` (CHANGE ON FIRST LOGIN)
 
 **New Files:**
 - `config.py` - Configuration management
@@ -125,7 +125,7 @@ python app.py
 ### 3. First Login
 
 1. Visit `/login` (or `/dashboard` - auto-redirects)
-2. Login with: `admin` / `change-this-password`
+2. Login with: `admin` / `Admin@2024!Secure`
 3. **Immediately change password** (via database or admin panel)
 
 ### 4. Configuration
