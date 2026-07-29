@@ -189,6 +189,11 @@ function updateAgentUI(agents, data) {
           <td>${agent.assigned_ip || '-'}</td>
           <td>${agent.session_status || '-'}</td>
           <td>
+            ${agent.rdp_enabled ? 
+              `<span style="color:var(--success);font-weight:600;"><i class="fas fa-check-circle"></i> Enabled</span>` : 
+              `<span style="color:var(--muted);">-</span>`}
+          </td>
+          <td>
             <button class="btn-action" onclick="openFileManager('${agent.agent_id}', '${agent.hostname}')" title="Browse Files">
               <i class="fas fa-folder-open"></i>
             </button>
@@ -198,6 +203,14 @@ function updateAgentUI(agents, data) {
             <button class="btn-action" onclick="takeScreenshot('${agent.agent_id}')" title="Screenshot">
               <i class="fas fa-camera"></i>
             </button>
+            ${agent.rdp_enabled ? `
+              <button class="btn-action" onclick="connectRDP('${agent.agent_id}')" title="Connect RDP" style="color:var(--success);">
+                <i class="fas fa-desktop"></i>
+              </button>
+              <button class="btn-action" onclick="downloadRDPFile('${agent.agent_id}')" title="Download RDP File">
+                <i class="fas fa-download"></i>
+              </button>
+            ` : ''}
           </td>
         `;
         agentsTable.appendChild(tr);
@@ -431,6 +444,91 @@ function connectToAgent(agentId) {
             });
           }
         }
+      }
+    });
+}
+
+// Connect to RDP using agent's auto-created account
+function connectRDP(agentId) {
+  fetch(`/api/agents`)
+    .then(r => r.json())
+    .then(data => {
+      const agents = data.agents || {};
+      const agent = Object.values(agents).find(a => a.agent_id === agentId);
+      if (agent && agent.rdp_enabled) {
+        // Create RDP session with stored credentials
+        const sessionId = 'rdp_' + Date.now();
+        fetch('/api/connect', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            session_id: sessionId,
+            host: agent.ip_address,
+            port: 3389,
+            username: agent.rdp_username,
+            password: 'REDACTED', // Password is stored encrypted in DB
+            protocol: 'rdp'
+          })
+        }).then(() => {
+          currentSessionId = sessionId;
+          loadSessions();
+          addTerminalLine(`RDP Connected to ${agent.hostname} (${agent.ip_address})`, 'success');
+          addTerminalLine(`Username: ${agent.rdp_username}`, 'info');
+          
+          // Auto-download RDP file for one-click connection
+          downloadRDPFile(agentId);
+          
+          // Try to launch MSTSC with credentials (Windows only)
+          if (navigator.userAgent.indexOf('Windows') !== -1) {
+            // Note: Browser cannot directly launch mstsc with credentials due to security
+            // User must manually connect, but we provide the credentials
+            addTerminalLine(`Press Win+R, type: mstsc /v:${agent.ip_address}:3389`, 'info');
+            addTerminalLine(`Username: ${agent.rdp_username}`, 'info');
+          }
+          
+          const input = document.getElementById('terminalInput');
+          if (input) input.focus();
+        });
+      } else {
+        addTerminalLine('RDP not enabled for this agent', 'error');
+      }
+    });
+}
+
+// Download RDP file for agent
+function downloadRDPFile(agentId) {
+  fetch(`/api/agents`)
+    .then(r => r.json())
+    .then(data => {
+      const agents = data.agents || {};
+      const agent = Object.values(agents).find(a => a.agent_id === agentId);
+      if (agent && agent.rdp_enabled) {
+        // Generate .rdp file content
+        const rdpContent = `full address:s:${agent.ip_address}:3389
+username:s:${agent.rdp_username}
+prompt for credentials:i:0
+authentication level:i:2
+connection type:i:7
+disable wallpaper:i:1
+disable full window drag:i:1
+allow desktop composition:i:0
+allow font smoothing:i:0
+disable menu anims:i:1
+disable themes:i:0
+disable cursor setting:i:0
+bitmap cache size:i:32
+compression:i:1
+`;
+        const blob = new Blob([rdpContent], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${agent.hostname}_RDP.rdp`;
+        a.click();
+        URL.revokeObjectURL(url);
+        addTerminalLine(`Downloaded RDP file for ${agent.hostname}`, 'success');
+      } else {
+        addTerminalLine('RDP not enabled for this agent', 'error');
       }
     });
 }

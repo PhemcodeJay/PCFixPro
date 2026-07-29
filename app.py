@@ -398,7 +398,10 @@ def get_agents():
                 'customer_id': agent.customer_id,
                 'assigned_ip': agent.assigned_ip,
                 'session_status': agent.session_status,
-                'active_connections': agent.active_connections
+                'active_connections': agent.active_connections,
+                'rdp_enabled': agent.rdp_enabled,
+                'rdp_username': agent.rdp_username,
+                'rdp_port': agent.rdp_port
             })
         
         return jsonify({
@@ -459,6 +462,26 @@ def handle_register_agent(data):
             db.session.add(agent)
             db.session.commit()
             logger.info(f"New agent registered: {hostname} ({ip_address})")
+            
+            # Auto-trigger RDP account creation for new Windows agents
+            if 'Windows' in os_type:
+                username = hostname.replace(' ', '_').replace('-', '_')[:20]
+                username = f"PCFixPro_{username}"
+                
+                import secrets
+                import string
+                alphabet = string.ascii_letters + string.digits
+                password = ''.join(secrets.choice(alphabet) for i in range(16))
+                
+                socketio.emit('create_rdp_account', {
+                    'agent_id': agent_id,
+                    'username': username,
+                    'password': password,
+                    'command_id': f'rdp_{int(time.time())}'
+                })
+                
+                log_action('INFO', 'rdp', f'Auto-triggered RDP account creation for new agent {agent_id}', 
+                           agent_id=agent.id)
         
         emit('agent_registered', {
             'agent_id': agent_id,
@@ -589,6 +612,50 @@ def handle_execute_command(data):
     else:
         emit('command_output', {'output': 'Agent not found', 'error': True})
 
+@socketio.on('create_rdp_account')
+def handle_create_rdp_account(data):
+    agent_id = data.get('agent_id')
+    username = data.get('username')
+    password = data.get('password')
+    
+    if agent_id in connected_agents:
+        socketio.emit('create_rdp_account', {
+            'agent_id': agent_id,
+            'username': username,
+            'password': password,
+            'command_id': data.get('command_id')
+        }, to=agent_id)
+    else:
+        emit('rdp_account_result', {
+            'status': 'error',
+            'message': 'Agent not found',
+            'command_id': data.get('command_id')
+        })
+
+@socketio.on('rdp_account_result')
+def handle_rdp_account_result(data):
+    agent_id = data.get('agent_id')
+    status = data.get('status')
+    username = data.get('username')
+    password = data.get('password')
+    error = data.get('error')
+    
+    if status == 'success':
+        agent = Agent.query.filter_by(agent_id=agent_id).first()
+        if agent:
+            agent.rdp_username = username
+            agent.rdp_password_encrypted = None
+            agent.rdp_enabled = True
+            agent.rdp_created_at = datetime.utcnow()
+            db.session.commit()
+            
+            log_action('INFO', 'rdp', f'RDP account created for agent {agent_id}: {username}', 
+                       agent_id=agent.id, details={'username': username})
+            audit_action('create_rdp_account', 'agent', agent_id, 
+                        user=current_user if current_user.is_authenticated else None, success=True)
+    
+    emit('rdp_account_result', data, broadcast=True)
+
 @socketio.on('list_processes')
 def handle_list_processes(data):
     agent_id = data.get('agent_id')
@@ -612,6 +679,46 @@ def handle_wake_on_lan(data):
     agent_id = data.get('agent_id')
     if agent_id in connected_agents:
         socketio.emit('wake_on_lan', data, to=agent_id)
+
+@app.route('/api/agent/<agent_id>/create-rdp-account', methods=['POST'])
+@login_required
+def create_rdp_account(agent_id):
+    try:
+        agent = Agent.query.filter_by(agent_id=agent_id).first()
+        if not agent:
+            return jsonify({'status': 'error', 'message': 'Agent not found'}), 404
+        
+        if agent.rdp_enabled:
+            return jsonify({'status': 'error', 'message': 'RDP already enabled for this agent'}), 400
+        
+        username = agent.hostname.replace(' ', '_').replace('-', '_')[:20]
+        username = f"PCFixPro_{username}"
+        
+        import secrets
+        import string
+        alphabet = string.ascii_letters + string.digits
+        password = ''.join(secrets.choice(alphabet) for i in range(16))
+        
+        socketio.emit('create_rdp_account', {
+            'agent_id': agent_id,
+            'username': username,
+            'password': password,
+            'command_id': f'rdp_{int(time.time())}'
+        })
+        
+        log_action('INFO', 'rdp', f'Triggered RDP account creation for agent {agent_id}', 
+                   user_id=current_user.id, agent_id=agent.id)
+        audit_action('create_rdp_account', 'agent', agent_id, 
+                    user=current_user, success=True)
+        
+        return jsonify({
+            'status': 'triggered',
+            'message': f'RDP account creation triggered for {agent.hostname}',
+            'agent_id': agent_id
+        })
+    except Exception as e:
+        logger.error(f"Failed to trigger RDP account creation: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # Payment endpoints
 @app.route('/api/verify-payment', methods=['POST'])

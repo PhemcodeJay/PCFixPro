@@ -51,6 +51,13 @@ class Agent(db.Model):
     active_connections = db.Column(db.Integer, default=0)
     metadata_json = db.Column(db.JSON, nullable=True)
     
+    # RDP Account fields
+    rdp_username = db.Column(db.String(100), nullable=True)
+    rdp_password_encrypted = db.Column(db.String(500), nullable=True)
+    rdp_enabled = db.Column(db.Boolean, default=False)
+    rdp_created_at = db.Column(db.DateTime, nullable=True)
+    rdp_port = db.Column(db.Integer, default=3389)
+    
     # Relationships
     sessions = db.relationship('Session', backref='agent', lazy=True, cascade='all, delete-orphan')
     files = db.relationship('File', backref='agent', lazy=True, cascade='all, delete-orphan')
