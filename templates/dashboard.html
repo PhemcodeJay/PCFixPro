@@ -169,10 +169,103 @@
 
       <!-- Agents Page -->
       <div id="agentsPage" class="page-section">
-        <div class="card full-width">
+        <!-- Agent Stats Grid -->
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-laptop-code"></i>
+              <h3>Total Agents</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="totalAgents">0</div>
+              <div class="sparkline" id="agentsChart"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-wifi"></i>
+              <h3>Online Now</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="onlineAgents">0</div>
+              <div class="status-row">
+                <span id="onlinePercentage">0%</span> online
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-users"></i>
+              <h3>Customers</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="customerCount">0</div>
+              <div class="status-row">
+                <span id="plansBreakdown">-</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-exclamation-circle"></i>
+              <h3>Offline Agents</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="offlineAgents">0</div>
+              <div class="status-row">
+                <span class="status-badge warning" id="offlineBadge" style="display:none;">Attention</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent Filters -->
+        <div class="card full-width" style="margin-top: 1.5rem;">
           <div class="card-header">
-            <i class="fas fa-laptop-code"></i>
-            <h3>Agent Management</h3>
+            <i class="fas fa-filter"></i>
+            <h3>Agent Filters</h3>
+          </div>
+          <div class="card-body">
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+              <div class="form-group">
+                <label>Status</label>
+                <select id="agentStatusFilter">
+                  <option value="all">All</option>
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                  <option value="warning">Warning</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>OS</label>
+                <select id="agentOsFilter">
+                  <option value="all">All</option>
+                  <option value="Windows">Windows</option>
+                  <option value="Linux">Linux</option>
+                  <option value="macOS">macOS</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Plan</label>
+                <select id="agentPlanFilter">
+                  <option value="all">All</option>
+                  <option value="starter">Starter</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+              <button class="btn-primary" onclick="applyAgentFilters()"><i class="fas fa-check"></i> Apply</button>
+              <button class="btn-secondary" onclick="resetAgentFilters()"><i class="fas fa-undo"></i> Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agents Table -->
+        <div class="card full-width" style="margin-top: 1rem;">
+          <div class="card-header">
+            <i class="fas fa-list"></i>
+            <h3>Connected Agents</h3>
+            <button class="btn-small" onclick="exportAgentsCSV()"><i class="fas fa-download"></i> Export CSV</button>
           </div>
           <div class="card-body">
             <table class="sessions-table">
@@ -183,29 +276,36 @@
                   <th>IP Address</th>
                   <th>OS</th>
                   <th>Status</th>
+                  <th>Version</th>
                   <th>Last Seen</th>
+                  <th>Customer</th>
+                  <th>Assigned IP</th>
+                  <th>Session</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="agentsTable">
                 <tr>
-                  <td colspan="7" style="text-align:center; padding: 2rem; color: #64748b;">
+                  <td colspan="11" style="text-align:center; padding: 2rem; color: #64748b;">
                     No agents connected. Agents will appear here when they install the client.
                   </td>
                 </tr>
               </tbody>
             </table>
-            <div style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
-              <p><strong>Agent Connectivity:</strong></p>
-              <p><i class="fas fa-info-circle"></i> Once agents connect, use the action buttons to:</p>
-              <ul style="margin-left: 1.5rem; color: #64748b;">
-                <li><i class="fas fa-desktop"></i> <strong>RDP/SSH/VNC</strong> - Remote desktop connections</li>
-                <li><i class="fas fa-terminal"></i> <strong>Terminal</strong> - Execute commands on client</li>
-                <li><i class="fas fa-folder-open"></i> <strong>File Explorer</strong> - Browse and manage client files (opens Windows File Explorer)</li>
-                <li><i class="fas fa-plug"></i> <strong>Processes</strong> - List and kill processes</li>
-                <li><i class="fas fa-camera"></i> <strong>Screenshot</strong> - Capture client screen</li>
-              </ul>
+            <div style="margin-top: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 12px; border-left: 4px solid #0ea5e9;">
+              <h4 style="margin-top: 0; color: #0c4a6e;"><i class="fas fa-rocket"></i> Quick Actions Guide</h4>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
+                <div style="padding: 0.5rem;"><i class="fas fa-desktop"></i> <strong>RDP/SSH/VNC</strong> - Remote desktop access to client machines</div>
+                <div style="padding: 0.5rem;"><i class="fas fa-terminal"></i> <strong>Terminal</strong> - Execute shell commands remotely</div>
+                <div style="padding: 0.5rem;"><i class="fas fa-folder-open"></i> <strong>File Explorer</strong> - Browse, upload, download and manage files</div>
+                <div style="padding: 0.5rem;"><i class="fas fa-plug"></i> <strong>Processes</strong> - View running processes and terminate them</div>
+                <div style="padding: 0.5rem;"><i class="fas fa-camera"></i> <strong>Screenshot</strong> - Capture real-time screen images</div>
+                <div style="padding: 0.5rem;"><i class="fas fa-registry"></i> <strong>Registry</strong> - Read Windows registry keys (Windows only)</div>
+                <div style="padding: 0.5rem;"><i class="fas fa-power-off"></i> <strong>Wake on LAN</strong> - Remotely wake powered-off machines</div>
+                <div style="padding: 0.5rem;"><i class="fas fa-sync"></i> <strong>Heartbeat</strong> - Monitor agent health and uptime</div>
+              </div>
             </div>
+          </div>
         </div>
       </div>
 
@@ -215,6 +315,10 @@
           <div class="card-header">
             <i class="fas fa-terminal"></i>
             <h3>Remote Console - <span id="terminalSession">No session</span></h3>
+            <div class="terminal-controls">
+              <button class="btn-small" onclick="clearTerminal()"><i class="fas fa-eraser"></i> Clear</button>
+              <button class="btn-small" onclick="exportTerminalLog()"><i class="fas fa-download"></i> Export Log</button>
+            </div>
           </div>
           <div class="card-body terminal-body">
             <div class="terminal" id="terminal">
@@ -234,18 +338,91 @@
 
       <!-- Security Page -->
       <div id="securityPage" class="page-section">
-        <div class="card">
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-shield-alt"></i>
+              <h3>Encryption</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric">AES-256</div>
+              <div class="status-row"><span class="status-badge success">Active</span></div>
+              <p style="margin-top: 0.5rem; color: #64748b;">All data encrypted at rest</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-lock"></i>
+              <h3>Authentication</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric">2FA</div>
+              <div class="status-row"><span class="status-badge success">Enabled</span></div>
+              <p style="margin-top: 0.5rem; color: #64748b;">Session tokens secure</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-user-shield"></i>
+              <h3>Access Control</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="activeUsers">1</div>
+              <div class="status-row">
+                <span>Admin: 1</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-file-alt"></i>
+              <h3>Audit Logs</h3>
+            </div>
+            <div class="card-body">
+              <div class="big-metric" id="auditLogCount">0</div>
+              <div class="status-row">
+                <span class="status-badge info">Tracking</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Details -->
+        <div class="card full-width" style="margin-top: 1.5rem;">
           <div class="card-header">
-            <i class="fas fa-shield-alt"></i>
-            <h3>Security Center</h3>
+            <i class="fas fa-info-circle"></i>
+            <h3>Security Overview</h3>
           </div>
           <div class="card-body">
-            <div class="big-metric">AES-256</div>
-            <div class="status-row"><span class="status-badge success">Encryption Active</span></div>
-            <div style="margin-top: 1rem;">
-              <p>Security Status: All Clear</p>
-              <p>Connected Agents: <span id="securityAgentCount">0</span></p>
-              <p>Active Sessions: <span id="securitySessionCount">0</span></p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+              <div>
+                <h4 style="color: #0c4a6e; margin-bottom: 0.5rem;"><i class="fas fa-check-circle"></i> Active Protections</h4>
+                <ul style="margin-left: 1.5rem; color: #64748b; line-height: 1.8;">
+                  <li>Password hashing (PBKDF2-SHA256)</li>
+                  <li>Session encryption (Fernet/AES-128)</li>
+                  <li>Rate limiting enabled</li>
+                  <li>SQL injection protection</li>
+                  <li>XSS protection headers</li>
+                </ul>
+              </div>
+              <div>
+                <h4 style="color: #0c4a6e; margin-bottom: 0.5rem;"><i class="fas fa-chart-line"></i> Statistics</h4>
+                <ul style="margin-left: 1.5rem; color: #64748b; line-height: 1.8;">
+                  <li>Connected Agents: <span id="securityAgentCount">0</span></li>
+                  <li>Active Sessions: <span id="securitySessionCount">0</span></li>
+                  <li>Failed Logins: <span id="failedLogins">0</span></li>
+                  <li>Blocked IPs: <span id="blockedIPs">0</span></li>
+                </ul>
+              </div>
+              <div>
+                <h4 style="color: #0c4a6e; margin-bottom: 0.5rem;"><i class="fas fa-history"></i> Recent Activity</h4>
+                <ul style="margin-left: 1.5rem; color: #64748b; line-height: 1.8;">
+                  <li>Login attempts tracked</li>
+                  <li>Command execution logged</li>
+                  <li>File operations audited</li>
+                  <li>Payment events recorded</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -262,7 +439,7 @@
             <form id="settingsForm">
               <div class="form-group">
                 <label>Server URL</label>
-<input type="text" id="serverUrl" value="http://localhost:5000" placeholder="http://your-server-ip:5000">
+                <input type="text" id="serverUrl" value="http://localhost:5000" placeholder="http://your-server-ip:5000">
               </div>
               <div class="form-group">
                 <label>Auto-refresh Interval (seconds)</label>

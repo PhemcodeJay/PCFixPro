@@ -110,43 +110,193 @@ async function loadAgents() {
     const response = await fetch('/api/agents');
     const data = await response.json();
     const agents = data.agents || {};
-    updateAgentUI(agents);
+    updateAgentUI(agents, data);
   } catch (error) {
     console.error('Failed to load agents:', error);
   }
 }
 
-// Update agent UI
-function updateAgentUI(agents) {
-  const count = Object.keys(agents).length;
-  document.getElementById('agentCount').textContent = count;
+// Update agent UI with enhanced stats
+function updateAgentUI(agents, data) {
+  const agentsArray = Object.values(agents);
+  const count = agentsArray.length;
+  const onlineCount = agentsArray.filter(a => a.status === 'online').length;
+  const offlineCount = count - onlineCount;
+  
+  // Update dashboard metrics
+  const totalAgentsEl = document.getElementById('totalAgents');
+  const onlineAgentsEl = document.getElementById('onlineAgents');
+  const customerCountEl = document.getElementById('customerCount');
+  const offlineAgentsEl = document.getElementById('offlineAgents');
+  const onlinePercentageEl = document.getElementById('onlinePercentage');
+  const offlineBadgeEl = document.getElementById('offlineBadge');
+  
+  if (totalAgentsEl) totalAgentsEl.textContent = count;
+  if (onlineAgentsEl) onlineAgentsEl.textContent = onlineCount;
+  if (customerCountEl) customerCountEl.textContent = new Set(agentsArray.map(a => a.customer_id).filter(Boolean)).size;
+  if (offlineAgentsEl) offlineAgentsEl.textContent = offlineCount;
+  
+  if (onlinePercentageEl && count > 0) {
+    onlinePercentageEl.textContent = Math.round((onlineCount / count) * 100) + '%';
+  }
+  if (offlineBadgeEl && offlineCount > 0) {
+    offlineBadgeEl.style.display = 'inline-block';
+  }
+  
+  // Update plan breakdown
+  const plansBreakdownEl = document.getElementById('plansBreakdown');
+  if (plansBreakdownEl) {
+    const plans = {};
+    agentsArray.forEach(a => {
+      if (a.plan) plans[a.plan] = (plans[a.plan] || 0) + 1;
+    });
+    plansBreakdownEl.textContent = Object.entries(plans).map(([plan, num]) => `${plan}: ${num}`).join(', ') || '-';
+  }
+  
+  // Update main dashboard agent count
+  const agentCountEl = document.getElementById('agentCount');
+  if (agentCountEl) agentCountEl.textContent = count;
   
   const statusText = document.getElementById('agentStatusText');
   const agentsList = document.getElementById('agentsList');
   
   if (count === 0) {
-    statusText.textContent = 'No agents connected';
-    agentsList.innerHTML = '<div style="text-align:center; padding: 1rem; color: #64748b;">No agents connected</div>';
+    if (statusText) statusText.textContent = 'No agents connected';
+    if (agentsList) agentsList.innerHTML = '<div style="text-align:center; padding: 1rem; color: #64748b;">No agents connected</div>';
   } else {
-    const onlineCount = Object.values(agents).filter(a => a.status === 'online').length;
-    statusText.textContent = `${onlineCount} online · ${count} total`;
+    if (statusText) statusText.textContent = `${onlineCount} online · ${count} total`;
     
-    agentsList.innerHTML = '';
-    agents.forEach((agent) => {
-      const agentDiv = document.createElement('div');
-      agentDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.6rem; border-bottom: 1px solid #f1f5f9;';
-      agentDiv.innerHTML = `
-        <div>
-          <div style="font-weight: 600; color: var(--dark);">${agent.hostname}</div>
-          <div style="font-size: 0.85rem; color: #64748b;">${agent.ip_address} · ${agent.os}</div>
-        </div>
-        <button class="btn-small" onclick="openFileManager('${agent.agent_id}', '${agent.hostname}')" title="Browse Files">
-          <i class="fas fa-folder-open"></i> Files
-        </button>
-      `;
-      agentsList.appendChild(agentDiv);
-    });
+    // Update agents table (for Agents page)
+    const agentsTable = document.getElementById('agentsTable');
+    if (agentsTable && agentsTable.offsetParent !== null) {
+      agentsTable.innerHTML = '';
+      agentsArray.forEach((agent) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><code>${agent.agent_id.slice(-8)}</code></td>
+          <td>${agent.hostname}</td>
+          <td>${agent.ip_address || '-'}</td>
+          <td>${agent.os || '-'}</td>
+          <td>
+            <span class="status-indicator-cell">
+              <span class="dot ${agent.status === 'online' ? 'live' : ''}"></span>
+              ${agent.status}
+            </span>
+          </td>
+          <td>${agent.agent_version || '-'}</td>
+          <td>${agent.last_seen ? new Date(agent.last_seen).toLocaleString() : '-'}</td>
+          <td>${agent.customer_id || '-'}</td>
+          <td>${agent.assigned_ip || '-'}</td>
+          <td>${agent.session_status || '-'}</td>
+          <td>
+            <button class="btn-action" onclick="openFileManager('${agent.agent_id}', '${agent.hostname}')" title="Browse Files">
+              <i class="fas fa-folder-open"></i>
+            </button>
+            <button class="btn-action" onclick="connectToAgent('${agent.agent_id}')" title="SSH Connect">
+              <i class="fas fa-terminal"></i>
+            </button>
+            <button class="btn-action" onclick="takeScreenshot('${agent.agent_id}')" title="Screenshot">
+              <i class="fas fa-camera"></i>
+            </button>
+          </td>
+        `;
+        agentsTable.appendChild(tr);
+      });
+    }
+    
+    // Update agents list (for dashboard)
+    if (agentsList) {
+      agentsList.innerHTML = '';
+      agentsArray.forEach((agent) => {
+        const agentDiv = document.createElement('div');
+        agentDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.6rem; border-bottom: 1px solid #f1f5f9;';
+        agentDiv.innerHTML = `
+          <div>
+            <div style="font-weight: 600; color: var(--dark);">${agent.hostname}</div>
+            <div style="font-size: 0.85rem; color: #64748b;">${agent.ip_address || 'N/A'} · ${agent.os || 'Unknown'} · ${agent.status}</div>
+          </div>
+          <button class="btn-small" onclick="openFileManager('${agent.agent_id}', '${agent.hostname}')" title="Browse Files">
+            <i class="fas fa-folder-open"></i> Files
+          </button>
+        `;
+        agentsList.appendChild(agentDiv);
+      });
+    }
   }
+}
+
+// Export agents to CSV
+function exportAgentsCSV() {
+  fetch('/api/agents')
+    .then(r => r.json())
+    .then(data => {
+      const agents = data.agents || {};
+      const agentsArray = Object.values(agents);
+      
+      if (agentsArray.length === 0) {
+        alert('No agents to export');
+        return;
+      }
+      
+      const headers = ['Agent ID', 'Hostname', 'IP Address', 'OS', 'Status', 'Version', 'Last Seen', 'Customer ID', 'Assigned IP', 'Session Status'];
+      const rows = agentsArray.map(a => [
+        a.agent_id, a.hostname, a.ip_address || '', a.os || '', a.status,
+        a.agent_version || '', a.last_seen || '', a.customer_id || '', a.assigned_ip || '', a.session_status || ''
+      ]);
+      
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `agents_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+}
+
+// Agent filters
+let currentAgentFilters = { status: 'all', os: 'all', plan: 'all' };
+
+function applyAgentFilters() {
+  currentAgentFilters = {
+    status: document.getElementById('agentStatusFilter').value,
+    os: document.getElementById('agentOsFilter').value,
+    plan: document.getElementById('agentPlanFilter').value
+  };
+  loadAgents(); // Reload with filters applied in the backend
+}
+
+function resetAgentFilters() {
+  document.getElementById('agentStatusFilter').value = 'all';
+  document.getElementById('agentOsFilter').value = 'all';
+  document.getElementById('agentPlanFilter').value = 'all';
+  currentAgentFilters = { status: 'all', os: 'all', plan: 'all' };
+  loadAgents();
+}
+
+// Clear terminal
+function clearTerminal() {
+  const output = document.getElementById('terminalOutput');
+  if (output) {
+    output.innerHTML = '';
+    addTerminalLine('Terminal cleared.', 'info');
+  }
+}
+
+// Export terminal log
+function exportTerminalLog() {
+  const output = document.getElementById('terminalOutput');
+  if (!output) return;
+  
+  const lines = Array.from(output.querySelectorAll('.terminal-line')).map(line => line.textContent).join('\n');
+  const blob = new Blob([lines], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `terminal_log_${new Date().toISOString().split('T')[0]}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Get duration string

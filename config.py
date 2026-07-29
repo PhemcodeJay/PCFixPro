@@ -6,9 +6,8 @@ class Config:
     """Base configuration"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
-    # PostgreSQL Database - Updated to production Neon database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgresql://neondb_owner:npg_5lTDIXByf1Qo@ep-twilight-breeze-axejy6j4-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+    # PostgreSQL Database - Set DATABASE_URL environment variable in production
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Encryption key for password encryption/decryption

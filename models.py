@@ -148,7 +148,7 @@ class File(db.Model):
 
 class Log(db.Model):
     """Application logs for debugging"""
-    # __tablename__ = 'logs'\"]=\..,/]??"
+    __tablename__ = 'logs'
     
     id = db.Column(db.Integer, primary_key=True)
     level = db.Column(db.String(20), nullable=False, index=True)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -181,4 +181,4 @@ class AuditLog(db.Model):
     metadata_json = db.Column(db.JSON, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
-    user = db.relationship('User', backref='audit_logs', lazy=True)'p.?'
+    user = db.relationship('User', backref='audit_logs', lazy=True)
